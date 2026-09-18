@@ -419,6 +419,7 @@ button.pick .pad{font-family:var(--mono); font-weight:500; font-size:12.5px; let
 .lhead h2{font-family:var(--display); font-size:11.5px; text-transform:uppercase;
   letter-spacing:.075em; margin:0; color:var(--mute)}
 .lhead .hint{margin:0; font-size:11.5px; color:var(--mute); line-height:1.4}
+.lhead .hint.warn{color:var(--brick); font-weight:600}
 #list{flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain;
   display:flex; flex-direction:column; gap:7px; padding:1px 2px 2px}
 .stgroup{font-family:var(--display); font-size:11px; text-transform:uppercase;
@@ -501,8 +502,11 @@ footer#foot a{color:var(--mute)}
   html, body{height:auto}
   #app{height:auto; min-height:100%}
   #split{flex-direction:column; padding:10px 16px 12px; gap:10px}
+  /* Mobile is the only version anyone will actually use, so the map gets the
+     room. It grew from 52vh once the sale card stopped floating over it -- the
+     card is in the list column now and costs the map nothing. */
   #mapcol{
-    flex:none; height:52vh; min-height:260px;
+    flex:none; height:60vh; min-height:280px;
     position:sticky; top:env(safe-area-inset-top, 0px); z-index:5;
     background:var(--paper); padding-bottom:9px;
   }
@@ -515,7 +519,7 @@ footer#foot a{color:var(--mute)}
      and its "next stop" stay on screen while the reader scrolls the list.
      The offset has to track #mapcol's height above it -- keep the two in step. */
   #nowpanel{position:sticky; z-index:4; margin-bottom:10px;
-    top:calc(52vh + env(safe-area-inset-top, 0px))}
+    top:calc(60vh + env(safe-area-inset-top, 0px))}
   /* the panel competes with the map for a short phone screen -- let the item
      text scroll sooner so the address and the next-stop step always fit */
   #nowpanel .nowit{max-height:74px}
@@ -523,8 +527,8 @@ footer#foot a{color:var(--mute)}
 @media (max-width:520px){
   .mast h1{font-size:20px}
   .search{max-width:none; flex-basis:100%}
-  #mapcol{height:50vh}
-  #nowpanel{top:calc(50vh + env(safe-area-inset-top, 0px))}   /* tracks #mapcol */
+  #mapcol{height:56vh}
+  #nowpanel{top:calc(56vh + env(safe-area-inset-top, 0px))}   /* tracks #mapcol */
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important; animation:none!important}}
 
@@ -1253,6 +1257,7 @@ rtbtn.onclick=function(){
    ahead up the loop or opened a popup. The dot moves, the map stays put. */
 var locbtn=document.getElementById('locbtn'), locmsg=document.getElementById('locmsg');
 var locWatch=null, locOn=false, mePos=null, meAccM=0, nearI=null;
+var locTimer=null, locNote='';   /* locNote: why location isn't showing, if it isn't */
 
 function locSay(t){
   locmsg.textContent=t||''; locmsg.hidden=!t;
@@ -1309,6 +1314,7 @@ function onPos(p){
     locSay('You’re outside the map area — nothing to show yet.');
     return;
   }
+  if(locNote){ locNote=''; syncModeUI(); }
   var n=nearestStop(); nearI=n[0]; syncNear();
   /* a new fix reorders closest-first and restates every card's distance */
   if(listMode==='near'){ syncModeUI(); render(); }
@@ -1319,13 +1325,24 @@ function onPos(p){
          ' · '+(d<300 ? ft+' ft' : (d/1609.344).toFixed(1)+' mi'));
 }
 function onLocErr(e){
-  stopLoc();
-  locSay(e && e.code===1
+  locFailed(e && e.code===1
     ? 'Location is off for this page. The map still works — you just won’t see your dot.'
     : 'Couldn’t get a location fix. Try again in the open air.');
 }
+/* One place for "location didn't happen", because the reader may have asked for
+   it from the map button OR from the Closest-to-me list button, and only ever
+   sees one of those two places. */
+function locFailed(msg){
+  stopLoc();
+  locNote=msg;
+  locSay(msg);
+  syncModeUI();
+}
 function stopLoc(){
-  if(locWatch!==null && navigator.geolocation) navigator.geolocation.clearWatch(locWatch);
+  clearTimeout(locTimer);
+  if(locWatch!==null && navigator.geolocation){
+    try{ navigator.geolocation.clearWatch(locWatch); }catch(e){}
+  }
   locWatch=null; locOn=false; mePos=null; nearI=null;
   /* closest-first can't mean anything now; fall back rather than freezing a
      stale order the reader can no longer trust */
@@ -1334,18 +1351,53 @@ function stopLoc(){
   locbtn.removeAttribute('data-state');
   placeMe(); syncNear();
 }
+/* Whether this page is even permitted to ask for a location.
+   Measured, 2026-09-18: a Claude Artifact renders inside a cross-origin iframe
+   whose allow= list is "translator; language-detector; fullscreen;
+   clipboard-write; gamepad" -- no geolocation. Permissions Policy denies
+   geolocation to a cross-origin frame unless it is delegated, so location can
+   never work in the artifact no matter what the reader taps or permits. It
+   works fine on GitHub Pages, which is an ordinary top-level page.
+   Without this check the reader just gets a button that does nothing. */
+function geoBlocked(){
+  try{
+    if(document.featurePolicy && document.featurePolicy.allowsFeature)
+      return !document.featurePolicy.allowsFeature('geolocation');
+  }catch(e){}
+  return false;   /* can't tell -- try anyway and let the error path handle it */
+}
+var EMBEDDED_MSG='Location is blocked in this embedded preview. '+
+  'Open the map in its own browser tab and it will work.';
+
 locbtn.onclick=function(){
-  if(locOn){ stopLoc(); locSay(''); return; }
-  if(!navigator.geolocation){ locSay('This browser can’t share a location.'); return; }
+  if(locOn){ stopLoc(); locSay(''); locNote=''; syncModeUI(); return; }
+  if(!navigator.geolocation){ locFailed('This browser can’t share a location.'); return; }
+  if(geoBlocked()){ locFailed(EMBEDDED_MSG); return; }
   locOn=true;
   locbtn.setAttribute('aria-pressed','true');
   locbtn.setAttribute('data-state','wait');
-  locSay('Finding you…');
+  locNote=''; locSay('Finding you…'); syncModeUI();
   /* watchPosition, not getCurrentPosition: the point is to keep up as they walk.
      The first fix can be slow and coarse, so no maximumAge -- a cached fix from
-     across town is worse than waiting. */
-  locWatch=navigator.geolocation.watchPosition(onPos, onLocErr,
-    { enableHighAccuracy:true, timeout:20000, maximumAge:0 });
+     across town is worse than waiting.
+
+     Wrapped: where the page is embedded in a cross-origin iframe that wasn't
+     granted the geolocation permission -- which is how a Claude Artifact renders
+     -- this can throw synchronously instead of calling the error callback. An
+     uncaught throw killed the handler and the button simply did nothing. */
+  try{
+    locWatch=navigator.geolocation.watchPosition(onPos, onLocErr,
+      { enableHighAccuracy:true, timeout:20000, maximumAge:0 });
+  }catch(e){
+    locFailed(EMBEDDED_MSG);
+    return;
+  }
+  /* watchPosition can also simply never call back when it is blocked, so don't
+     leave the reader staring at "Finding you…" forever. */
+  clearTimeout(locTimer);
+  locTimer=setTimeout(function(){
+    if(locOn && !mePos) locFailed('Still no location fix. Check location is on for this browser, then try again.');
+  }, 22000);
 };
 
 /* ---------------- list mode ---------------- */
@@ -1354,9 +1406,15 @@ function syncModeUI(){
   var near = (listMode==='near');
   mnear.setAttribute('aria-pressed', near?'true':'false');
   mloop.setAttribute('aria-pressed', near?'false':'true');
-  document.getElementById('lhint').textContent = near
-    ? (mePos ? 'Nearest first. Tap a sale to see the walk to the next one.'
-             : 'Waiting for your location\u2026 showing the walking loop meanwhile.')
+  var hint=document.getElementById('lhint');
+  /* locNote shows in either mode: a failure drops the list back to loop order,
+     so keying the message off "near" meant the reader who asked for closest-first
+     got silently switched back with no explanation -- which is exactly what
+     "the Closest to me button doesn't work" looked like. */
+  hint.classList.toggle('warn', !!locNote);
+  hint.textContent = locNote ? locNote
+    : near ? (mePos ? 'Nearest first. Tap a sale to see the walk to the next one.'
+                    : 'Finding your location\u2026 showing the walking loop meanwhile.')
     : 'Tap a sale to see the walk to the next one.';
 }
 function setMode(mo){

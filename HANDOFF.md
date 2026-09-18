@@ -8,6 +8,23 @@
 **Owner:** Jim Barnthouse (jim.barnthouse@mac.com)
 
 An interactive map of 59 neighborhood yard sales, numbered as a walking loop.
+
+> ## Two things to know before anything else
+>
+> **1. Mobile is the only version that matters.** Jim's words: *"no one will be
+> using the desktop version."* This gets used one-handed, on a sidewalk, on a
+> September morning. Desktop must not be broken, but every trade-off goes to the
+> phone. Test at 375px before you consider anything done.
+>
+> **2. Geolocation cannot work inside the Claude Artifact.** Measured
+> 2026-09-18: the artifact renders in a cross-origin iframe whose `allow` list is
+> `translator; language-detector; fullscreen; clipboard-write; gamepad` — **no
+> `geolocation`**. Permissions Policy denies geolocation to a cross-origin frame
+> unless it is delegated, so no amount of tapping or granting will make the blue
+> dot or "Closest to me" work there. **Location features must be tested on
+> GitHub Pages**, which is an ordinary top-level page. The page detects this and
+> says so (`geoBlocked()`), rather than leaving a button that does nothing.
+
 Built and published two ways:
 
 1. **Claude Artifact** — still **private**; Jim shares it from the artifact
@@ -110,6 +127,30 @@ What changed:
 7. **The map-control route toggle now hides only the faint loop**, never the bold
    leg. Burying the next-stop line behind a toggle is exactly what made the old
    route line invisible to everyone.
+
+#### Location, mobile room, and a silent failure (fifth pass)
+
+Jim, testing v18 on a phone: *"Closest to me button doesn't seem to be working"*
+and *"it feels like we have more room to expand the map now."*
+
+- **The button wasn't broken; the platform blocks geolocation in the artifact.**
+  See the box at the top of this file. `geoBlocked()` checks
+  `document.featurePolicy.allowsFeature('geolocation')` and explains instead of
+  failing silently.
+- **`watchPosition` is wrapped in try/catch.** When a frame isn't granted the
+  permission it can throw synchronously rather than calling the error callback —
+  an uncaught throw killed the click handler, so the button genuinely did
+  nothing. There is also a 22s timeout, because a blocked `watchPosition` can
+  simply never call back and leave "Finding you…" on screen forever.
+- **`locNote` shows in both list modes.** A location failure drops the list back
+  to loop order, and the message had been keyed off *being* in "near" mode — so
+  the reader who asked for closest-first got silently switched back with no
+  explanation. That is precisely what "the button doesn't work" looked like.
+  Failures now surface in the list hint (`.hint.warn`) *and* on the map.
+- **The mobile map grew to `60vh`** (`56vh` under 520px) from 52/50, which it
+  could afford once the sale card stopped floating over it.
+  **`#nowpanel`'s sticky `top` must track `#mapcol`'s height — change one, change
+  the other.** Both media queries carry a comment saying so.
 
 #### The card came off the map (fourth pass)
 
@@ -702,11 +743,17 @@ buttons, or drive handlers via `javascript_tool`. Wheel zoom itself is a standar
 
 ## Open items
 
-- **NOT TESTED ON A REAL PHONE.** Everything since v16 — the next-stop flow, the
-  two list modes, geolocation in standalone/home-screen (PWA) mode — has only been
-  exercised in a desktop browser at an emulated phone size. iOS Safari differs on
-  geolocation permission prompting and persistence in standalone mode especially.
-  **This is the first thing the next session should do.**
+- **GitHub Pages has not been pushed since the 2026-09-18 rework.** `index.html`
+  in the repo is current, but nothing has been pushed, so the public site is
+  several versions stale. **Location can only be tested there** (see the box at
+  the top), so this push is what unblocks real testing. Jim had not authorised it
+  as of this handoff.
+- **NOT TESTED ON A REAL PHONE.** The next-stop flow, the two list modes and the
+  sticky panel have only been exercised in a desktop browser at 375px. Geolocation
+  in standalone/home-screen (PWA) mode is completely unverified, and iOS Safari
+  differs there on permission prompting and persistence. Also unverified: whether
+  `60vh` + the sticky panel still works with iOS Safari's collapsing toolbar,
+  which changes `vh` underfoot.
 - **Printable flyer / PDF** — Jim's original ask, still not built. One page: map plus
   the numbered list. He deferred it this round.
 - **Google My Maps CSV/KML export** — also originally requested, deferred. All the
