@@ -55,8 +55,13 @@ of the sales but never **where to actually walk**:
 3. **Building outlines: investigated and rejected.** See
    [Why there are no buildings](#why-there-are-no-buildings-on-the-map).
 4. **The route order was re-solved on street distance**, which renumbered every
-   house. 7.54 → 7.28 mi as drawn. Artifact **v16 was published before this
-   re-solve**, so its numbering is the old one — republish before relying on it.
+   house. 7.54 → 7.28 mi as drawn.
+5. **The whole navigation model was reworked** after Jim tested v16 — one bold
+   next-leg instead of 59, closest-to-me list mode, no more "walk it in order".
+   See [The navigation rework](#the-navigation-rework-the-third-pass-and-the-important-one).
+
+Artifact **v16 was published before items 4 and 5**, so it is two rounds stale —
+republish before relying on it.
 
 The landmark toggle is **gone** — Jim judged the layer wouldn't get used, and the
 button slot was better spent on location. The three landmarks themselves are
@@ -64,6 +69,64 @@ unchanged and now simply always drawn (which was their default state anyway).
 
 **Still open:** none of this is tested on a real phone yet — see
 [You are here](#you-are-here).
+
+### The navigation rework (the third pass, and the important one)
+
+Jim tested v16 and the verdict was that the map still didn't answer the only
+question that matters on a sidewalk: **"I'm at this sale, where do I go next?"**
+Drawing all 59 legs at one weight was the cause -- in the dense core the line
+crosses itself repeatedly and no reader can tell which strand is theirs. When
+everything is emphasised, nothing is.
+
+He also pointed out the framing was wrong: **most people will not walk 59 sales
+in four hours**, so a page built around "walk it in order" is built around
+something almost nobody will do.
+
+What changed:
+
+1. **The route is two layers now.** `gRoute` draws the whole loop faint (17%
+   opacity, thin) as context. `gLeg` draws **one leg bold** -- the walk from the
+   selected sale to the next one. `showLeg()` sets it; `drawLeg()` renders it.
+   Direction chevrons now appear **only on the active leg**, not all 59.
+2. **The popup's primary action is "Next stop"** -- number, address and real
+   walking distance, as a full-width brick button. Tapping it advances to that
+   sale and shows *its* onward leg, so the popup walks you around the loop one
+   step at a time. This is the feature; everything else supports it.
+3. **The destination pin is forced out of its cluster** (`solo()` in
+   `updateClusters()`) and ringed (`.pin.dest`). A destination hidden inside a
+   cluster badge doesn't answer "where am I going".
+4. **Two list modes**, `#mnear` / `#mloop`: *Closest to me* (sorts by distance
+   from the reader, drops the street headings, puts a distance on every card) and
+   *Walking loop*. Choosing "Closest to me" without a position **turns location
+   on for you** rather than being a dead button. Losing the fix falls back to
+   loop order rather than freezing a stale one.
+5. **The "start the loop here" flow is gone**, and with it `startAt`,
+   `localStorage['hill-start']` and the renumbering. `num(s)` is now just
+   `s.i + 1`. Numbers are the map-to-list cross-reference, nothing more.
+6. **Total mileage is gone from the footnote.** It read as a commitment nobody
+   was making. `walk_mi` is still computed and still in `routemeta.json`.
+7. **The map-control route toggle now hides only the faint loop**, never the bold
+   leg. Burying the next-stop line behind a toggle is exactly what made the old
+   route line invisible to everyone.
+
+**`placePopAt()` scores its own position.** The card is anchored to the selected
+pin and the bold leg starts at that same pin, so any fixed side eventually lands
+on the line. It now tries four positions around the pin and keeps whichever
+covers least of the leg, measured against sampled points. Before: one leg was
+**100% hidden behind its own card**. After: worst case is 42%, on the two folded
+I-44 footbridge legs, where both endpoints stay visible; 57 of 59 are under 10%.
+`fitLeg()` also frames the leg to one end of the map and sizes the free band from
+the card's real height -- a hard-coded 180px was smaller than a tall card, which
+made the placement guard flip it straight back over the leg.
+
+**`--on-accent` is a new palette token.** Text sitting on a `--brick` / `--gold` /
+`--basil` / `--you` fill was hard-coded `#fff`. That is fine on the light palette,
+but the dark palette turns those accents into light pastels: white on dark-mode
+brick measures **3.35:1**, which fails WCAG AA for 13px text, and this map gets
+read one-handed in September sunlight. `--on-accent` is `#FFFFFF` light and
+`#1C1310` dark, so **light mode is pixel-identical** and dark mode becomes legible.
+It covers pin numbers, cluster badges, filter chips, map buttons, the popup number
+and the next-stop button. **Use it for any new text on an accent fill.**
 
 ### The drawn path (`walk.py`)
 
@@ -334,12 +397,11 @@ cards" deserve reading in full.
 
 ## The route, and why it is what it is
 
-A **closed loop**, 59 stops, **7.28 miles as drawn and walked**. `stops.json` array
-order (its internal `startAt=0`) starts at `5414 Wilson Ave` and ends at
-`2023 Macklind Ave` —
-this is no longer surfaced in the UI as *the* start (Jim asked for that framing
-removed, see below), but it's still the array order everything else is numbered from
-until a reader picks their own.
+A **closed loop**, 59 stops, **7.28 miles as drawn and walked** — though the page no
+longer tells anyone that, on purpose. `stops.json` array order starts at
+`5414 Wilson Ave` and ends at `2023 Macklind Ave`. That start is not surfaced as
+*the* start anywhere in the UI; it is simply the array order, and the order the
+numbers come from.
 
 Jim's constraint was: *don't start or end on any sale that's way off on its own.* Two
 sales are genuine geographic outliers (mean distance to their 3 nearest neighbors) —
@@ -435,25 +497,29 @@ issue** — see below.
 ### The numbering model — important if you touch stops or the list
 
 A stop's identity is **`s.i`, its fixed index in the canonical loop**, which is
-`stops.json` array order. The number *printed* on it is derived:
+`stops.json` array order, and that is also the number printed on it:
 
 ```js
-num(s) = ((s.i - startAt + N) % N) + 1
+num(s) = s.i + 1
 ```
 
-`startAt` is which stop the reader chose as #1. Any house can be #1 — the route is a
-closed loop, so re-entering it anywhere costs nothing and the drawn route line never
-changes; only numbering and list order do. Selection, pins and cards are all keyed on
-`s.i`, never on the displayed number. `startAt` persists per-viewer in
-`localStorage['hill-start']` (wrapped in try/catch — it throws in private windows and
-during thumbnail capture).
+Selection, pins, cards, clusters and the leg lookup are all keyed on `s.i`. The
+displayed number is never used as an identity.
 
-**Known consequence, left deliberately:** a reader who picks a start gets the
-*preceding* loop stop as their finish, which can be one of the two outliers (starting
-at `5004 Bischoff` ends at `4941 Magnolia`). Jim's no-outlier rule holds for the
-shipped default; an override can land on one. He was told, and chose to leave reader
-freedom in place. He also asked to be offered the option of making those two stops
-refuse to be a start — **not implemented, his call.**
+**This used to be reader-relative.** A `startAt` let anyone pick a house as #1 and
+the whole list renumbered from there, persisted in `localStorage['hill-start']`.
+That went out with the "walk it in order" framing (2026-09-18): once the page stops
+claiming people will walk all 59 in order, a number that moves is strictly worse
+than one that doesn't — and it made the number useless as a thing to point at.
+**If you reintroduce reader-relative numbering, you also reintroduce the trap that
+`localStorage` throws in private windows and during thumbnail capture.**
+
+This invariant must hold after any change to stops or the list:
+
+```js
+const nums=[...document.querySelectorAll('#pinlayer button.pin .n')].map(e=>+e.textContent).sort((a,b)=>a-b);
+JSON.stringify(nums)===JSON.stringify(Array.from({length:59},(_,i)=>i+1))  // must be true
+```
 
 ### Landmarks
 
@@ -564,13 +630,6 @@ so wheel-zoom can't be verified that way — it scrolls the page instead. Use th
 buttons, or drive handlers via `javascript_tool`. Wheel zoom itself is a standard
 `wheel` listener and works for real users; don't "fix" it based on that false negative.
 
-Useful invariant check after any numbering change:
-
-```js
-const nums=[...document.querySelectorAll('#pinlayer button.pin .n')].map(e=>+e.textContent).sort((a,b)=>a-b);
-JSON.stringify(nums)===JSON.stringify(Array.from({length:59},(_,i)=>i+1))  // must be true
-```
-
 ---
 
 ## Where to start on the two chosen priorities
@@ -609,6 +668,11 @@ JSON.stringify(nums)===JSON.stringify(Array.from({length:59},(_,i)=>i+1))  // mu
 
 ## Open items
 
+- **NOT TESTED ON A REAL PHONE.** Everything since v16 — the next-stop flow, the
+  two list modes, geolocation in standalone/home-screen (PWA) mode — has only been
+  exercised in a desktop browser at an emulated phone size. iOS Safari differs on
+  geolocation permission prompting and persistence in standalone mode especially.
+  **This is the first thing the next session should do.**
 - **Printable flyer / PDF** — Jim's original ask, still not built. One page: map plus
   the numbered list. He deferred it this round.
 - **Google My Maps CSV/KML export** — also originally requested, deferred. All the
@@ -617,7 +681,6 @@ JSON.stringify(nums)===JSON.stringify(Array.from({length:59},(_,i)=>i+1))  // mu
 - **Neighborhood Center double marker** — landmark *and* sale pin. Jim's call. Now
   that the landmark toggle is gone there's no way to hide the duplicate, so this is
   slightly more pointed than it was.
-- **Whether to forbid the two outliers as a chosen start** — offered, he hasn't decided.
 - **Late signups.** If more houses register before the 26th, `./build.sh --data`
   re-reads the sheet, but re-geocoding is a manual curl step (`build.sh --data` prints
   it) and any no-match needs a `MANUAL` entry. Note that **adding a house renumbers the
