@@ -1189,7 +1189,8 @@ function buildPins(){
       var cx=info.cx*k+tx, cy=info.cy*k+ty;
       var targetK = info.maxD>0 ? (CLUSTER_PX*1.7)/info.maxD : k*2.2;
       if(targetK <= MAXK){
-        zoomAt(cx, cy, Math.max(1.3, targetK/k));
+        var t=zoomTarget(cx, cy, Math.max(1.3, targetK/k));
+        animateTo(t[0], t[1], t[2]);
       } else {
         /* some houses are genuinely next-door neighbors -- close enough in
            real distance that no zoom level ever separates their pins past a
@@ -1400,6 +1401,51 @@ function clamp(){
   ty = Math.max(keep - H*k, Math.min(H - keep, ty));
 }
 function fit(){ k=1; tx=0; ty=0; apply(); }
+/* Programmatic camera moves are eased; the reader's own drag and pinch stay
+   instant. Tapping a cluster used to snap several zoom levels in one frame,
+   which read as the map lurching rather than moving. */
+var camAnim=null;
+function reducedMotion(){
+  try{ return matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){ return false; }
+}
+function now(){
+  return (window.performance && performance.now) ? performance.now() : Date.now();
+}
+var camDone=null;
+function camStop(){
+  if(camAnim){ cancelAnimationFrame(camAnim); camAnim=null; }
+  if(camDone){ clearTimeout(camDone); camDone=null; }
+}
+function animateTo(k1, tx1, ty1, ms){
+  camStop();
+  function land(){ camStop(); k=k1; tx=tx1; ty=ty1; clamp(); apply(); }
+  if(reducedMotion() || !window.requestAnimationFrame){ land(); return; }
+  var k0=k, x0=tx, y0=ty, t0=now();
+  ms=ms||300;
+  /* Guarantee arrival. requestAnimationFrame is not promised to fire -- it is
+     starved in a backgrounded tab, and measurably never fires in some embedded
+     views. Without this the map would stop wherever the last frame left it and
+     simply never reach the stop the reader tapped. Easing is the nicety; landing
+     is the contract. */
+  camDone=setTimeout(land, ms+150);
+  (function step(){
+    var t=Math.min(1,(now()-t0)/ms);
+    var e=1-Math.pow(1-t,3);                 /* ease-out cubic */
+    /* zoom interpolates geometrically -- a linear ramp between two scales
+       accelerates visibly at the wide end */
+    k=k0*Math.pow(k1/k0, e);
+    tx=x0+(tx1-x0)*e; ty=y0+(ty1-y0)*e;
+    clamp(); apply();
+    if(t<1){ camAnim=requestAnimationFrame(step); }
+    else { camStop(); }
+  })();
+}
+/* where zoomAt would land, without going there */
+function zoomTarget(cx,cy,f){
+  var nk=Math.max(MINK,Math.min(MAXK,k*f));
+  f=nk/k;
+  return [nk, cx-(cx-tx)*f, cy-(cy-ty)*f];
+}
 function zoomAt(cx,cy,f){
   var nk=Math.max(MINK,Math.min(MAXK,k*f));
   f=nk/k; if(f===1) return;
@@ -1407,6 +1453,7 @@ function zoomAt(cx,cy,f){
 }
 shell.addEventListener('wheel', function(e){
   e.preventDefault();
+  camStop();
   var r=shell.getBoundingClientRect();
   zoomAt(e.clientX-r.left, e.clientY-r.top, e.deltaY<0?1.14:1/1.14);
 }, {passive:false});
@@ -1415,6 +1462,8 @@ var ptr={}, np=0, lastMid=null, lastDist=0, moved=false;
 shell.addEventListener('pointerdown', function(e){
   if(e.target.closest('button.pin')||e.target.closest('button.clusterbtn')||
      e.target.closest('#pop')||e.target.closest('.mapui')) return;
+  /* the reader's hand wins over an eased move already in flight */
+  camStop();
   shell.setPointerCapture(e.pointerId);
   ptr[e.pointerId]={x:e.clientX,y:e.clientY}; np++; moved=false;
   if(np===1) shell.classList.add('drag');
@@ -1468,7 +1517,8 @@ expbtn.onclick=function(){
   expbtn.setAttribute('title', on?'Shrink map':'Expand map');
   if(on) window.scrollTo(0,0);   /* the page has nothing to scroll now */
   relayout();
-  if(activeLeg!==null) fitLeg(); else fit();
+  /* instant: the map box just changed size, same reason as the resize handler */
+  if(activeLeg!==null) fitLeg(true); else fit();
 };
 var rtbtn=document.getElementById('rtbtn');
 rtbtn.onclick=function(){
@@ -1495,10 +1545,8 @@ var renderedAt=null, RENDER_M=12;   /* where the closest-first list was last bui
 var centreNext=false;               /* the reader asked to be centred on */
 function centreOnMe(){
   if(!mePos) return;
-  var q=px(mePos[0],mePos[1]);
-  k=Math.max(k, 3.2);
-  tx=W/2-q[0]*k; ty=H/2-q[1]*k;
-  clamp(); apply();
+  var q=px(mePos[0],mePos[1]), k1=Math.max(k, 3.2);
+  animateTo(k1, W/2-q[0]*k1, H/2-q[1]*k1);
 }
 
 function locSay(t){
@@ -1866,7 +1914,7 @@ function routeMetresFromMe(i){
 
 /* Frame one leg: both ends on screen with room to breathe, so "where do I go
    next" is answered without the reader hunting for the other end of the line. */
-function fitLeg(){
+function fitLeg(instant){
   if(!legPts) return;
   var pts=legPts.map(function(p){ return px(p[0],p[1]); });
   var xs=pts.map(function(q){return q[0];}), ys=pts.map(function(q){return q[1];});
@@ -1885,9 +1933,12 @@ function fitLeg(){
      is gone. */
   var GAP=26;
   var kx2=(W-GAP*2)/Math.max(w,1), ky2=(H-GAP*2)/Math.max(h,1);
-  k=Math.max(MINK, Math.min(6, Math.min(kx2,ky2)));
-  tx=W/2-cx*k; ty=H/2-cy*k;
-  clamp(); apply();
+  var k1=Math.max(MINK, Math.min(6, Math.min(kx2,ky2)));
+  var tx1=W/2-cx*k1, ty1=H/2-cy*k1;
+  /* instant on resize: the box changed under us and easing a correction there
+     looks like a glitch rather than a move */
+  if(instant){ k=k1; tx=tx1; ty=ty1; clamp(); apply(); }
+  else animateTo(k1, tx1, ty1);
 }
 
 /* ---------------- filters + list ---------------- */
@@ -2050,7 +2101,7 @@ window.addEventListener('resize', function(){
      one, so the view slides off whatever the reader was looking at -- most
      visible on a phone rotating or the browser chrome collapsing. Re-frame the
      leg they were sent to, or fall back to fitting everything. */
-  if(activeLeg!==null) fitLeg(); else fit();
+  if(activeLeg!==null) fitLeg(true); else fit();
 });
 document.addEventListener('keydown', function(e){ if(e.key==='Escape') select(null); });
 })();

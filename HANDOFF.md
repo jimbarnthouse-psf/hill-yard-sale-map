@@ -130,6 +130,29 @@ What changed:
    leg. Burying the next-stop line behind a toggle is exactly what made the old
    route line invisible to everyone.
 
+#### Eased camera (tenth pass)
+
+Tapping a cluster snapped several zoom levels in a single frame, which read as
+the map lurching. **Programmatic camera moves are now eased** (`animateTo()`,
+ease-out cubic, 300ms) — cluster taps, `fitLeg()`, `centreOnMe()`. The reader's
+own drag, pinch and wheel stay instant and **cancel any move in flight**
+(`camStop()`), so the hand always wins. Zoom interpolates *geometrically*; a
+linear ramp between two scales visibly accelerates at the wide end.
+
+Instant, not eased, when the map box itself just changed size — the resize
+handler and the expand toggle both pass `fitLeg(true)`. Easing a correction
+there looks like a glitch rather than a move. `prefers-reduced-motion` also
+takes the instant path.
+
+**`animateTo()` guarantees arrival with a `setTimeout` backstop.**
+`requestAnimationFrame` is not promised to fire: it is starved in a backgrounded
+tab, and it **measurably never fires in the Claude Code browser pane** (verified
+2026-09-18 — `requestAnimationFrame` exists, a callback registered against it
+never runs). Without the backstop the map would stop wherever the last frame
+left it and never reach the stop the reader tapped. Easing is the nicety;
+landing is the contract. **A consequence for testing: the easing itself cannot
+be observed in the browser pane — only that the camera lands.**
+
 #### Full-screen map, landscape, trimmed header (ninth pass)
 
 - **`#expbtn` expands the map to full screen** on phones, and back. Everything
