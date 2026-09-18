@@ -4,7 +4,9 @@
 **Live on GitHub Pages:** https://jimbarnthouse-psf.github.io/hill-yard-sale-map/
 **Repo:** https://github.com/jimbarnthouse-psf/hill-yard-sale-map (public)
 **Event:** Saturday, September 26, 2026, 8am–noon. The Hill, St. Louis 63110.
-**Handed off:** September 17, 2026, updated September 18, 2026 (twice) — 8 days out.
+**Handed off:** September 17, 2026; reworked through September 18, 2026 — 8 days out.
+**Status:** Jim tested v22 on his iPhone over GitHub Pages and called it done.
+Artifact and Pages are both current with `main`.
 **Owner:** Jim Barnthouse (jim.barnthouse@mac.com)
 
 An interactive map of 59 neighborhood yard sales, numbered as a walking loop.
@@ -826,25 +828,21 @@ buttons, or drive handlers via `javascript_tool`. Wheel zoom itself is a standar
 
 ## Open items
 
-- **GitHub Pages has not been pushed since the 2026-09-18 rework.** `index.html`
-  in the repo is current, but nothing has been pushed, so the public site is
-  several versions stale. **Location can only be tested there** (see the box at
-  the top), so this push is what unblocks real testing. Jim had not authorised it
-  as of this handoff.
-- **NOT TESTED ON A REAL PHONE.** The next-stop flow, the two list modes and the
-  sticky panel have only been exercised in a desktop browser at 375px. Geolocation
-  in standalone/home-screen (PWA) mode is completely unverified, and iOS Safari
-  differs there on permission prompting and persistence. Also unverified: whether
-  `60vh` + the sticky panel still works with iOS Safari's collapsing toolbar,
-  which changes `vh` underfoot.
+- **Standalone / home-screen (PWA) mode is still unverified.** Jim tested on
+  iPhone Safari and signed the map off as working, but nobody has added it to the
+  home screen and re-checked geolocation there — iOS Safari differs on permission
+  prompting and persistence in standalone mode.
+- **Battery over a four-hour event is untested.** `watchPosition` runs with
+  `enableHighAccuracy:true` from page load. The second tap on the location button
+  stops it, but nobody has measured the drain across a real morning.
 - **Printable flyer / PDF** — Jim's original ask, still not built. One page: map plus
   the numbered list. He deferred it this round.
 - **Google My Maps CSV/KML export** — also originally requested, deferred. All the
   geocoded data is ready in `stops.json`, so this is quick.
 - **`2227 Stephen Ct` vs `Stephen Ave`** — unresolved possible typo in the signup.
-- **Neighborhood Center double marker** — landmark *and* sale pin. Jim's call. Now
-  that the landmark toggle is gone there's no way to hide the duplicate, so this is
-  slightly more pointed than it was.
+- **Neighborhood Center double marker** — landmark *and* sale pin, and since the
+  landmark moved onto the Daggett × Marconi corner the two now sit visibly apart.
+  There is no toggle to hide either one. Jim's call; he has left it twice.
 - **Late signups.** If more houses register before the 26th, `./build.sh --data`
   re-reads the sheet, but re-geocoding is a manual curl step (`build.sh --data` prints
   it) and any no-match needs a `MANUAL` entry. Note that **adding a house renumbers the
