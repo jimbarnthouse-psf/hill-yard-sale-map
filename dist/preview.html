@@ -314,6 +314,23 @@ button.startbtn:focus-visible{outline:2px solid var(--basil); outline-offset:2px
   max-height:132px; overflow-y:auto}
 #pop .it + .it{border-top:1px dashed var(--line); padding-top:8px}
 
+/* houses too close together to ever separate by zooming (real next-door
+   neighbors) get a pick list instead of a dead-end cluster badge */
+#pop .picklist{margin-top:9px; max-height:260px; overflow-y:auto;
+  display:flex; flex-direction:column; gap:5px}
+button.pick{
+  display:flex; align-items:center; gap:9px; width:100%; text-align:left;
+  font-family:var(--body); font-size:13px; color:var(--ink); cursor:pointer;
+  background:var(--sunk); border:1px solid transparent; border-radius:8px;
+  padding:7px 9px;
+}
+button.pick:hover{border-color:var(--brick)}
+button.pick:focus-visible{outline:2px solid var(--brick); outline-offset:1px}
+button.pick .pnum{font-family:var(--mono); font-weight:500; font-size:11.5px; color:var(--brick);
+  background:var(--surface); border-radius:6px; padding:2px 7px; flex:none;
+  font-variant-numeric:tabular-nums}
+button.pick .pad{font-family:var(--mono); font-weight:500; font-size:12.5px; letter-spacing:-.01em}
+
 /* ---------- list ---------- */
 .lhead{flex:none; display:flex; flex-direction:column; gap:5px; padding:0 2px 8px}
 .lhead-row{display:flex; align-items:baseline; gap:8px}
@@ -780,7 +797,15 @@ function buildPins(){
       var info = badgeInfo[idx]; if(!info) return;
       var cx=info.cx*k+tx, cy=info.cy*k+ty;
       var targetK = info.maxD>0 ? (CLUSTER_PX*1.7)/info.maxD : k*2.2;
-      zoomAt(cx, cy, Math.max(1.3, targetK/k));
+      if(targetK <= MAXK){
+        zoomAt(cx, cy, Math.max(1.3, targetK/k));
+      } else {
+        /* some houses are genuinely next-door neighbors -- close enough in
+           real distance that no zoom level ever separates their pins past a
+           tappable gap. Rather than a dead end at max zoom, offer a picker
+           naming each one directly. */
+        openPicker(info.members, info.cx, info.cy);
+      }
     });
     layer.appendChild(b); return b;
   });
@@ -893,7 +918,9 @@ function apply(){
     d.classList.toggle('flip', (q[0]*k+tx) > W*0.62);
   });
   updateClusters();
-  updLabels(); updScale(); if(sel!==null) placePop(sel);
+  updLabels(); updScale();
+  if(sel!==null) placePop(sel);
+  else if(pickerAt) placePopAt(pickerAt[0]*k+tx, pickerAt[1]*k+ty);
 }
 /* labels: keep text a constant screen size by scaling font instead of the group,
    and hide the rare label whose anchor point would fall under a fixed map
@@ -966,8 +993,8 @@ function updateClusters(){
     badge.firstChild.firstChild.textContent=comp.length;
     var streets={}; comp.forEach(function(i){ streets[STOPS[i].street]=1; });
     badge.setAttribute('aria-label', comp.length+' sales near '+
-      Object.keys(streets).slice(0,2).join(' & ')+', tap to zoom in');
-    badgeInfo[idx]={cx:cx, cy:cy, maxD:maxD};
+      Object.keys(streets).slice(0,2).join(' & ')+', tap to choose one');
+    badgeInfo[idx]={cx:cx, cy:cy, maxD:maxD, members:comp.slice()};
   });
   for(var r=badgeIdx; r<clusterBadges.length; r++) clusterBadges[r].hidden=true;
   pins.forEach(function(p,i){ p.classList.toggle('clustered', !!clustered[i]); });
@@ -1082,10 +1109,7 @@ function popHTML(s){
      s.lat+'%2C'+s.lon+'">Directions &rarr;</a>';
   return h;
 }
-function placePop(i){
-  var s=STOPS[i]; if(!s) return;
-  var q=px(s.lat,s.lon);
-  var sx=q[0]*k+tx, sy=q[1]*k+ty;
+function placePopAt(sx,sy){
   pop.hidden=false;
   var pw=pop.offsetWidth, ph=pop.offsetHeight;
   var L=sx-pw/2, T=sy-ph-30;
@@ -1094,15 +1118,46 @@ function placePop(i){
   T=Math.max(8, Math.min(H-ph-8, T));
   pop.style.left=L.toFixed(0)+'px'; pop.style.top=T.toFixed(0)+'px';
 }
+function placePop(i){
+  var s=STOPS[i]; if(!s) return;
+  var q=px(s.lat,s.lon);
+  placePopAt(q[0]*k+tx, q[1]*k+ty);
+}
+/* a cluster of genuinely next-door houses can be closer together in real
+   distance than any zoom level can separate into individually tappable pins
+   (MAXK is a hard cap). Rather than a dead end, list them by address so the
+   reader picks directly instead of pinching at pixels. */
+var pickerAt=null;
+function pickerHTML(members){
+  var h='<button class="x" type="button" aria-label="Close">&times;</button>'+
+    '<div class="hd"><div class="ad">'+members.length+' sales here</div></div>'+
+    '<div class="picklist">';
+  members.slice().sort(function(a,b){ return num(STOPS[a])-num(STOPS[b]); }).forEach(function(i){
+    var s=STOPS[i];
+    h+='<button class="pick" type="button" data-i="'+i+'">'+
+       '<span class="pnum">'+num(s)+'</span><span class="pad">'+esc(s.addr)+'</span></button>';
+  });
+  h+='</div>';
+  return h;
+}
+function openPicker(members, cx, cy){
+  sel=null;   /* a picker isn't "for" any one stop yet */
+  pickerAt=[cx,cy];   /* layer-local, so apply() can keep it anchored through pan/zoom */
+  pop.innerHTML=pickerHTML(members);
+  placePopAt(cx*k+tx, cy*k+ty);
+}
 pop.addEventListener('click', function(e){
   if(e.target.closest('.x')){ select(null); return; }
   var sb=e.target.closest('.startbtn');
   if(sb) setStart(+sb.dataset.start);
+  var pk=e.target.closest('.pick');
+  if(pk){ var i=+pk.dataset.i; select(i, true); flyTo(i); }
 });
 
 /* ---------------- selection ---------------- */
 function select(i, fromMap){
   sel=i;
+  pickerAt=null;   /* any selection change closes an open picker */
   updateClusters();   /* the selected stop is always shown standalone, never clustered */
   pins.forEach(function(p,j){ p.classList.toggle('on', j===i); });
   cards.forEach(function(c){ if(c) c.classList.toggle('on', +c.dataset.i===i); });

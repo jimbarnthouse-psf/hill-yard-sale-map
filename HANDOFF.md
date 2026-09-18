@@ -1,6 +1,6 @@
 # The Hill Yard Sale Map — handoff
 
-**Live artifact:** https://claude.ai/artifact/XTPHamraY1feVFwMaanuQp (Version 13)
+**Live artifact:** https://claude.ai/artifact/XTPHamraY1feVFwMaanuQp (Version 14)
 **Live on GitHub Pages:** https://jimbarnthouse-psf.github.io/hill-yard-sale-map/
 **Repo:** https://github.com/jimbarnthouse-psf/hill-yard-sale-map (public)
 **Event:** Saturday, September 26, 2026, 8am–noon. The Hill, St. Louis 63110.
@@ -359,6 +359,19 @@ pin. He was told and left it; he may prefer it be only a sale pin.
    label *every* qualifying run per street (capped at 3), not just the longest, so a
    multi-block street keeps a label in view as you pan. If you touch the label logic,
    re-verify by zooming into a block away from a street's most prominent stretch.
+9. **`window.scrollTo({behavior:'smooth'})` silently no-ops in at least one real
+   browser context** (confirmed by direct measurement, 2026-09-18 — `scrollY` simply
+   never changed). This broke the setStart() list-reanchor fix even though it tested
+   fine via `scrollIntoView`-based approaches. **Never rely on smooth-scroll
+   completing** — use instant `scrollTo(x,y)` / `element.scrollTop=` and verify with
+   `getBoundingClientRect()` measurements, not just "did the value change."
+10. **A handful of clusters never resolved even at max zoom** (`MAXK=14`) — some
+    houses are genuinely next-door neighbors, close enough in real distance that no
+    achievable zoom separates their pins past a tappable gap (e.g. 5227/5231/5235
+    Daggett Ave, three doors in a row). Tapping the badge would zoom to the cap and
+    just sit there, stuck. Fixed with a fallback: if the zoom needed to separate a
+    cluster exceeds `MAXK`, tapping it opens a picker (`#pop` repurposed) listing
+    each address directly instead of trying to zoom. See `openPicker`/`pickerHTML`.
 
 ### Testing notes
 
