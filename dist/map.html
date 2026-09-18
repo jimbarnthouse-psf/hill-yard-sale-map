@@ -421,6 +421,7 @@ button.pick .pad{font-family:var(--mono); font-weight:500; font-size:12.5px; let
 .lhead h2{font-family:var(--display); font-size:11.5px; text-transform:uppercase;
   letter-spacing:.075em; margin:0; color:var(--mute)}
 .lhead .hint{margin:0; font-size:11.5px; color:var(--mute); line-height:1.4}
+.hint[hidden]{display:none!important}
 .lhead .hint.warn{color:var(--brick); font-weight:600}
 #list{flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain;
   display:flex; flex-direction:column; gap:7px; padding:1px 2px 2px}
@@ -538,6 +539,24 @@ footer#foot a{color:var(--mute)}
   #nowpanel{top:calc(64vh + env(safe-area-inset-top, 0px));   /* tracks #mapcol */
             top:calc(64dvh + env(safe-area-inset-top, 0px))}
 }
+#rotate{display:none}
+/* Exactly the broken combination: narrow enough to get the phone layout, but
+   with no height to give it. Not gated on pointer:coarse -- that is untestable
+   in a desktop browser and would silently never fire if a device disagreed. A
+   desktop window both under 860px wide and under 500px tall is vanishingly rare,
+   and resizing it clears this. */
+@media (orientation:landscape) and (max-height:500px) and (max-width:860px){
+  #app{display:none}
+  #rotate{
+    display:grid; position:fixed; inset:0; z-index:200; place-content:center;
+    justify-items:center; gap:10px; text-align:center; padding:24px;
+    background:var(--paper); color:var(--ink-2);
+  }
+  #rotate svg{color:var(--brick)}
+  #rotate b{font-family:var(--display); font-size:15px; text-transform:uppercase;
+    letter-spacing:.02em; color:var(--ink)}
+  #rotate span{font-size:13px; max-width:34ch; line-height:1.45}
+}
 @media (prefers-reduced-motion:reduce){*{transition:none!important; animation:none!important}}
 
 @media print{
@@ -563,6 +582,18 @@ footer#foot a{color:var(--mute)}
 }
 </style>
 
+<!-- A landscape phone is ~852px wide, just under the 860px breakpoint, so it
+     gets the vertical phone layout with a 68dvh map crushed into a ~390px-tall
+     viewport. Rather than ship a broken screen, ask for upright. -->
+<div id="rotate" role="alert">
+  <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor"
+       stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <rect x="7" y="2" width="10" height="20" rx="2"></rect>
+    <path d="M12 18h.01"></path>
+  </svg>
+  <b>Turn your phone upright</b>
+  <span>The map needs the height. Rotate back and it will pick up where you were.</span>
+</div>
 <div id="app">
   <header id="top">
     <div class="mast">
@@ -610,7 +641,7 @@ footer#foot a{color:var(--mute)}
           <button class="mode" id="mnear" type="button" aria-pressed="true">Closest to me</button>
           <button class="mode" id="mloop" type="button" aria-pressed="false">Walking loop</button>
         </div>
-        <p class="hint" id="lhint">Finding your location&hellip;</p>
+        <p class="hint" id="lhint" hidden></p>
       </div>
     </div>
   </div>
@@ -1593,16 +1624,17 @@ function syncModeUI(){
   var near = (listMode==='near');
   mnear.setAttribute('aria-pressed', near?'true':'false');
   mloop.setAttribute('aria-pressed', near?'false':'true');
+  /* The hint only earns its space when something is wrong. "Nearest first" said
+     nothing the button labelled "Closest to me" doesn't already say, and it cost
+     a line above the map on a phone. locNote still shows in either mode: a
+     failure drops the list back to loop order, so keying the message off being
+     in "near" mode left the reader silently switched back with no explanation. */
   var hint=document.getElementById('lhint');
-  /* locNote shows in either mode: a failure drops the list back to loop order,
-     so keying the message off "near" meant the reader who asked for closest-first
-     got silently switched back with no explanation -- which is exactly what
-     "the Closest to me button doesn't work" looked like. */
+  var waiting = near && !mePos && locOn;
+  var msg = locNote || (waiting ? 'Finding your location\u2026' : '');
   hint.classList.toggle('warn', !!locNote);
-  hint.textContent = locNote ? locNote
-    : near ? (mePos ? 'Nearest first. Tap a sale to see the walk to the next one.'
-                    : 'Finding your location\u2026 showing the walking loop meanwhile.')
-    : 'Tap a sale to see the walk to the next one.';
+  hint.textContent = msg;
+  hint.hidden = !msg;
 }
 function setMode(mo){
   listMode=mo;
