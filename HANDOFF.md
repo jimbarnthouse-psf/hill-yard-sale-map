@@ -4,7 +4,7 @@
 **Live on GitHub Pages:** https://jimbarnthouse-psf.github.io/hill-yard-sale-map/
 **Repo:** https://github.com/jimbarnthouse-psf/hill-yard-sale-map (public)
 **Event:** Saturday, September 26, 2026, 8am–noon. The Hill, St. Louis 63110.
-**Handed off:** September 17, 2026 — 9 days out.
+**Handed off:** September 17, 2026, updated September 18, 2026 — 8 days out.
 **Owner:** Jim Barnthouse (jim.barnthouse@mac.com)
 
 An interactive map of 59 neighborhood yard sales, numbered as a walking loop.
@@ -20,17 +20,59 @@ Built and published two ways:
 
 ---
 
-## What this session was asked to do next
+## What happened since the original handoff (2026-09-17 → 2026-09-18)
 
-Jim asked to hand off "to polish," and picked two priorities:
+The "polish" round (pin collision, route-direction arrows, contrast/text-size floor,
+mobile filter-chip fade) landed, then a real-phone QA pass surfaced and fixed:
+mobile layout completely broken on GitHub Pages (missing viewport meta — see
+[Read this before touching the map](#read-this-before-touching-the-map)), blurry
+zoomed-in pin numbers (`filter:drop-shadow` forcing bitmap rasterization), street
+labels vanishing when zoomed into an unlabeled block, a broken list-scroll-to-top
+(`scrollTo({behavior:'smooth'})` silently no-ops in real browsers — never trust it,
+use instant scroll), and a handful of permanently-stuck clusters (real next-door
+houses too close for any zoom to separate — now falls back to a picker). Also: a
+PWA manifest + home-screen icon set, an address-list update (one swap), and a
+masthead redesign that gave the map more vertical room. Full detail and the
+"don't reintroduce these" list is in
+[Bugs already found and fixed](#bugs-already-found-and-fixed--dont-reintroduce-these).
 
-1. **Visual and design refinement** — typography, spacing, the map's cartography,
-   pin collision in dense blocks, the look of the route line and landmark labels.
-2. **Real-world testing and edge cases** — test on an actual phone, the sticky map
-   while walking, the Directions hand-off, sunlight legibility, slow connections.
+All of the above is **live on both deploy targets** as of Version 15 / the latest
+`main` push — see the links at the top of this file.
 
-He explicitly did *not* pick the printable flyer or the Google My Maps export this
-round, though both are still open (see [Open items](#open-items)).
+## What this session should do next
+
+Jim wants to try using the **phone's live location** to make following the walking
+loop easier — the obvious version is a "you are here" dot on the map, but he's open
+to what that should actually do. Discuss with him before building; there's a real
+product question buried in it (see below), not just an implementation one.
+
+**Technical starting points:**
+- `navigator.geolocation.watchPosition()` is a **browser API, not a network
+  request** — it doesn't touch the CSP or the "zero runtime network dependencies"
+  property this page is built around (see the CSP section below). Safe to use.
+- Requires HTTPS. Both deploy targets already serve over HTTPS — no change needed.
+- Requires an explicit, native browser permission prompt the first time it's called;
+  design for the reader saying no (map still works, they just don't get a dot).
+- **Never transmit the location anywhere.** There's no backend to send it to
+  today — keep it that way. All use should be client-side only (drawing the dot,
+  distance/nearest-stop math), and that should stay true even if this grows.
+- The PWA/home-screen setup (manifest.json, icons) shipped this session — test
+  geolocation specifically in **standalone/home-screen mode**, not just in-browser;
+  permission persistence and prompting can behave differently there, especially on
+  iOS Safari.
+- Projecting a live lat/lon into map coordinates is exactly what `px(lat,lon)`
+  already does for every pin and landmark — reuse it, don't reinvent it.
+
+**Real product questions to raise with Jim, not just decide unilaterally:**
+- Does the map **auto-pan/recenter** on the reader's position as they walk (a true
+  "follow me" mode), or just draw a dot and leave panning to them? Auto-recentering
+  can fight a reader who's deliberately looked ahead or opened a popup.
+- Should it **highlight or auto-select the nearest not-yet-visited stop**, or reorder
+  the list by proximity? Careful — the list's whole point is the *fixed walking
+  loop order* Jim solved for; a proximity reorder could quietly undermine that and
+  deserves an explicit decision, not a default.
+- Is this a toggle (like the existing landmarks/route buttons) or always-on once
+  granted?
 
 ---
 
