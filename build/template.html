@@ -1,3 +1,11 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<!-- template.html must be self-sufficient: the Claude Artifact platform injects its
+     own charset/viewport meta into its wrapper, but GitHub Pages serves this file raw
+     with no wrapper at all. Without these, mobile browsers fall back to a ~980px
+     virtual viewport, the @media (max-width:860px) rules never match, and the whole
+     page renders as the desktop two-column layout shrunk to fit -- unusable on a
+     phone in either orientation. Confirmed via a real GitHub Pages test 2026-09-18. -->
 <title>The Hill Yard Sale Map</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=DM+Mono:wght@400;500&display=swap">
@@ -160,13 +168,18 @@ button.pin{
   position:absolute; top:0; left:0; pointer-events:auto;
   transform-origin:50% 100%; border:0; padding:0; background:none; cursor:pointer;
   width:30px; height:38px; margin:-38px 0 0 -15px;
-  filter:drop-shadow(0 2px 3px rgba(36,26,23,.34));
   transition:opacity .16s;
 }
 button.pin .bd{
   width:30px; height:30px; border-radius:50% 50% 50% 50%/48% 48% 52% 52%;
   background:var(--brick); border:2px solid var(--surface);
   display:grid; place-items:center; position:relative;
+  /* a plain box-shadow, not filter:drop-shadow -- a filter forces the browser
+     to rasterize this element's subtree (including the number below) at its
+     own pre-zoom size, so the map's ancestor scale then blows up an already-
+     blurry bitmap instead of re-rendering crisp glyphs. Confirmed as the
+     cause of "numbers unreadable when zoomed in", 2026-09-18. */
+  box-shadow:0 2px 3px rgba(36,26,23,.34);
 }
 button.pin .bd::after{
   content:""; position:absolute; bottom:-6px; left:50%; width:9px; height:9px;
@@ -176,15 +189,15 @@ button.pin .bd::after{
 }
 button.pin .n{font-family:var(--mono); font-weight:500; font-size:13.5px; color:#fff;
   font-variant-numeric:tabular-nums; letter-spacing:-.03em}
-button.pin.multi .bd{box-shadow:0 0 0 2px var(--gold)}
+button.pin.multi .bd{box-shadow:0 2px 3px rgba(36,26,23,.34), 0 0 0 2px var(--gold)}
 button.pin.dim{opacity:.17}
 button.pin.dim .bd{background:var(--mute)}
 button.pin.on{z-index:40}
 button.pin.on .bd{background:var(--brick-deep); transform:scale(1.32);
-  box-shadow:0 0 0 3px var(--gold), 0 0 0 6px rgba(184,129,31,.28)}
+  box-shadow:0 2px 3px rgba(36,26,23,.34), 0 0 0 3px var(--gold), 0 0 0 6px rgba(184,129,31,.28)}
 button.pin.on .bd::after{background:var(--brick-deep)}
 button.pin:focus-visible{outline:none}
-button.pin:focus-visible .bd{box-shadow:0 0 0 3px var(--ink), 0 0 0 6px rgba(255,255,255,.7)}
+button.pin:focus-visible .bd{box-shadow:0 2px 3px rgba(36,26,23,.34), 0 0 0 3px var(--ink), 0 0 0 6px rgba(255,255,255,.7)}
 button.pin.clustered{display:none}
 
 /* several sales too close together to tap individually collapse into one
@@ -193,19 +206,18 @@ button.clusterbtn{
   position:absolute; top:0; left:0; pointer-events:auto;
   transform-origin:50% 50%; border:0; padding:0; background:none; cursor:pointer;
   width:36px; height:36px; margin:-18px 0 0 -18px;
-  filter:drop-shadow(0 2px 4px rgba(36,26,23,.36));
 }
 button.clusterbtn[hidden]{display:none}
 button.clusterbtn .cbd{
   width:36px; height:36px; border-radius:50%; background:var(--gold);
   border:2.5px solid var(--surface); display:grid; place-items:center;
-  box-shadow:0 0 0 3px rgba(184,129,31,.24);
+  box-shadow:0 2px 4px rgba(36,26,23,.36), 0 0 0 3px rgba(184,129,31,.24);
 }
 button.clusterbtn .cn{font-family:var(--mono); font-weight:600; font-size:14px; color:#fff;
   font-variant-numeric:tabular-nums; letter-spacing:-.03em}
 button.clusterbtn:hover .cbd{transform:scale(1.08)}
 button.clusterbtn:focus-visible{outline:none}
-button.clusterbtn:focus-visible .cbd{box-shadow:0 0 0 3px var(--ink), 0 0 0 6px rgba(255,255,255,.7)}
+button.clusterbtn:focus-visible .cbd{box-shadow:0 2px 4px rgba(36,26,23,.36), 0 0 0 3px var(--ink), 0 0 0 6px rgba(255,255,255,.7)}
 
 /* small chevrons along the walking loop so its direction of travel still
    reads where the dashed line crosses itself in the dense blocks */
@@ -788,6 +800,13 @@ function setStart(i){
   startAt=i;
   try{ localStorage.setItem('hill-start', String(i)); }catch(e){}
   syncNumbers(); syncStartUI(); render();
+  /* the list just reordered around the new #1 -- anchor back to it rather than
+     leaving the reader scrolled to wherever they were in the old order.
+     scrollTop resets #list's own scroller (desktop, two columns); scrollIntoView
+     also handles mobile, where the page scrolls and #list has no scroller of
+     its own. */
+  listEl.scrollTop = 0;
+  listEl.scrollIntoView({block:'start', behavior:'smooth'});
   if(sel!==null) select(sel);
 }
 function syncStartUI(){
