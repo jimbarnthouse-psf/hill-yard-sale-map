@@ -1,0 +1,8 @@
+[out:json][timeout:90];
+(
+  way["highway"](38.6050,-90.2920,38.6250,-90.2635);
+  way["leisure"~"^(park|pitch|garden|playground)$"](38.6050,-90.2920,38.6250,-90.2635);
+  way["landuse"~"^(cemetery|grass|recreation_ground)$"](38.6050,-90.2920,38.6250,-90.2635);
+  way["railway"="rail"](38.6050,-90.2920,38.6250,-90.2635);
+);
+out geom;

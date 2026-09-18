@@ -1,0 +1,1192 @@
+<title>The Hill Yard Sale Map</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=DM+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  color-scheme:light dark;
+  --brick:#A63328; --brick-deep:#7E241C; --basil:#2E6B41; --gold:#B8811F;
+  --ink:#241A17; --ink-2:#4A3B35; --mute:#6C5D55;
+  --paper:#FAF7F4; --surface:#FFFFFF; --sunk:#F1EBE6;
+  --line:#E4DBD4; --line-soft:#EFE8E3;
+  --map-bg:#F0EAE4; --map-block:#E7DFD8; --map-road:#FFFFFF;
+  --map-road-edge:#D8CDC4; --map-park:#D5E2D2; --map-rail:#C9BDB4;
+  --shadow:0 1px 2px rgba(36,26,23,.06), 0 6px 18px -8px rgba(36,26,23,.18);
+  --shadow-pop:0 2px 6px rgba(36,26,23,.10), 0 18px 40px -12px rgba(36,26,23,.32);
+  --display:"Archivo Black","Arial Black",system-ui,sans-serif;
+  --body:"Public Sans",system-ui,-apple-system,Segoe UI,sans-serif;
+  --mono:"DM Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+/* the browser's own form-control/scrollbar theme should track our theme, not
+   just the OS preference — otherwise an explicit data-theme override leaves
+   native widgets rendered in the wrong scheme underneath our own palette */
+:root[data-theme="light"]{color-scheme:light}
+:root[data-theme="dark"]{color-scheme:dark}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --brick:#E0674F; --brick-deep:#F08E75; --basil:#79B98C; --gold:#DCA83F;
+    --ink:#F4EDE8; --ink-2:#D6C8C0; --mute:#A3928A;
+    --paper:#181310; --surface:#221B17; --sunk:#2A211C;
+    --line:#3A2F29; --line-soft:#2E2520;
+    --map-bg:#1C1613; --map-block:#251E19; --map-road:#4A3E37;
+    --map-road-edge:#2A221D; --map-park:#24352A; --map-rail:#3A302A;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 6px 18px -8px rgba(0,0,0,.6);
+    --shadow-pop:0 2px 6px rgba(0,0,0,.5), 0 18px 40px -12px rgba(0,0,0,.7);
+  }
+}
+:root[data-theme="dark"]{
+  --brick:#E0674F; --brick-deep:#F08E75; --basil:#79B98C; --gold:#DCA83F;
+  --ink:#F4EDE8; --ink-2:#D6C8C0; --mute:#A3928A;
+  --paper:#181310; --surface:#221B17; --sunk:#2A211C;
+  --line:#3A2F29; --line-soft:#2E2520;
+  --map-bg:#1C1613; --map-block:#251E19; --map-road:#4A3E37;
+  --map-road-edge:#2A221D; --map-park:#24352A; --map-rail:#3A302A;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 6px 18px -8px rgba(0,0,0,.6);
+  --shadow-pop:0 2px 6px rgba(0,0,0,.5), 0 18px 40px -12px rgba(0,0,0,.7);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:var(--body); font-size:15px; line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+#app{display:flex; flex-direction:column; height:100%; min-height:0}
+
+/* ---------- masthead ---------- */
+header#top{
+  flex:none; background:var(--surface);
+  border-bottom:1px solid var(--line);
+  padding:14px 16px 12px; padding-block-start:calc(14px + env(safe-area-inset-top,0px));
+}
+.mast{display:flex; align-items:flex-start; gap:14px; flex-wrap:wrap;
+      max-width:1500px; margin:0 auto; width:100%}
+.tri{flex:none; width:7px; align-self:stretch; min-height:42px; border-radius:4px;
+     background:linear-gradient(var(--basil) 0 33.3%, #F2EDE8 33.3% 66.6%, var(--brick) 66.6% 100%);
+     box-shadow:inset 0 0 0 1px rgba(36,26,23,.10)}
+.mast h1{
+  font-family:var(--display); font-size:clamp(19px,4.4vw,27px); line-height:1.05;
+  margin:0 0 3px; letter-spacing:-.017em; text-transform:uppercase; text-wrap:balance;
+}
+.mast h1 em{font-style:normal; color:var(--brick)}
+.sub{margin:0; color:var(--mute); font-size:12.5px; letter-spacing:.005em}
+.sub b{font-family:var(--mono); font-weight:500; color:var(--ink-2); font-size:12px}
+.whenbox{
+  margin-left:auto; display:flex; align-items:center; gap:9px;
+  background:var(--sunk); border:1px solid var(--line);
+  border-radius:9px; padding:7px 11px; font-size:12.5px; color:var(--ink-2);
+}
+.whenbox .hrs{font-weight:600; color:var(--ink)}
+.live{font-family:var(--mono); font-size:11px; letter-spacing:.06em;
+  text-transform:uppercase; border-radius:5px; padding:3px 6px; font-weight:500}
+.live.on{background:var(--basil); color:#fff}
+.live.done{background:var(--line); color:var(--mute)}
+.whenbox .cal{font-family:var(--mono); font-size:11px; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--ink-2); font-weight:500}
+
+/* ---------- controls ---------- */
+#controls{
+  flex:none; background:var(--surface); border-bottom:1px solid var(--line);
+  padding:10px 16px 11px;
+}
+.cwrap{max-width:1500px; margin:0 auto; display:flex; flex-direction:column; gap:9px}
+.crow{display:flex; gap:9px; align-items:center; flex-wrap:wrap}
+.search{position:relative; flex:1 1 230px; min-width:0; max-width:340px}
+.search svg{position:absolute; left:10px; top:50%; transform:translateY(-50%);
+  width:15px; height:15px; color:var(--mute); pointer-events:none}
+.search input{
+  width:100%; font-family:var(--body); font-size:14px; color:var(--ink);
+  background:var(--sunk); border:1px solid var(--line); border-radius:9px;
+  padding:9px 30px 9px 31px; -webkit-appearance:none;
+}
+.search input::placeholder{color:var(--mute)}
+.search input:focus-visible{outline:2px solid var(--brick); outline-offset:1px; background:var(--surface)}
+.search .clr{position:absolute; right:5px; top:50%; transform:translateY(-50%);
+  border:0; background:none; color:var(--mute); cursor:pointer; font-size:17px;
+  line-height:1; padding:4px 6px; border-radius:6px}
+.search .clr:hover{color:var(--brick-deep); background:var(--line-soft)}
+
+.chips{display:flex; gap:6px; flex-wrap:wrap; align-items:center}
+button.chip{
+  font-family:var(--body); font-size:12.5px; font-weight:500; color:var(--ink-2);
+  background:var(--surface); border:1px solid var(--line); border-radius:99px;
+  padding:6px 11px; cursor:pointer; display:inline-flex; align-items:center; gap:6px;
+  transition:background .12s, border-color .12s, color .12s;
+}
+button.chip:hover{border-color:var(--ink-2); color:var(--ink)}
+button.chip .k{font-family:var(--mono); font-size:11px; color:var(--mute);
+  font-weight:500; font-variant-numeric:tabular-nums}
+button.chip[aria-pressed="true"]{background:var(--brick); border-color:var(--brick); color:#fff}
+button.chip[aria-pressed="true"] .k{color:rgba(255,255,255,.8)}
+button.chip.pay[aria-pressed="true"]{background:var(--basil); border-color:var(--basil)}
+button.chip.cashy[aria-pressed="true"]{background:var(--gold); border-color:var(--gold); color:#fff}
+button.chip.cashy[aria-pressed="true"] .k{color:rgba(255,255,255,.82)}
+button.chip:focus-visible{outline:2px solid var(--brick); outline-offset:2px}
+.sep{width:1px; align-self:stretch; background:var(--line); margin:0 2px}
+.reset{font-family:var(--body); font-size:12.5px; color:var(--brick); background:none;
+  border:0; cursor:pointer; padding:6px 4px; text-decoration:underline;
+  text-underline-offset:2px; font-weight:600}
+.reset[hidden]{display:none!important}
+.tally{font-family:var(--mono); font-size:11.5px; color:var(--mute); margin-left:auto;
+  font-variant-numeric:tabular-nums; white-space:nowrap}
+.tally b{color:var(--brick); font-weight:500}
+
+/* ---------- split ---------- */
+#split{flex:1 1 auto; display:flex; min-height:0; max-width:1500px; width:100%;
+  margin:0 auto; padding:12px 16px 16px; gap:14px}
+#mapcol{flex:1 1 58%; min-width:0; display:flex; flex-direction:column; min-height:0}
+#listcol{flex:1 1 42%; max-width:470px; min-width:0; display:flex; flex-direction:column; min-height:0}
+
+#mapshell{
+  position:relative; flex:1 1 auto; min-height:0; border-radius:12px; overflow:hidden;
+  background:var(--map-bg); border:1px solid var(--line); box-shadow:var(--shadow);
+  touch-action:none; cursor:grab;
+}
+#mapshell.drag{cursor:grabbing}
+#mapsvg{position:absolute; inset:0; width:100%; height:100%; display:block}
+#pinlayer{position:absolute; inset:0; transform-origin:0 0; pointer-events:none}
+
+button.pin{
+  position:absolute; top:0; left:0; pointer-events:auto;
+  transform-origin:50% 100%; border:0; padding:0; background:none; cursor:pointer;
+  width:30px; height:38px; margin:-38px 0 0 -15px;
+  filter:drop-shadow(0 2px 3px rgba(36,26,23,.34));
+  transition:opacity .16s;
+}
+button.pin .bd{
+  width:30px; height:30px; border-radius:50% 50% 50% 50%/48% 48% 52% 52%;
+  background:var(--brick); border:2px solid var(--surface);
+  display:grid; place-items:center; position:relative;
+}
+button.pin .bd::after{
+  content:""; position:absolute; bottom:-6px; left:50%; width:9px; height:9px;
+  background:var(--brick); border-right:2px solid var(--surface);
+  border-bottom:2px solid var(--surface);
+  transform:translateX(-50%) rotate(45deg); border-radius:0 0 3px 0; z-index:-1;
+}
+button.pin .n{font-family:var(--mono); font-weight:500; font-size:13.5px; color:#fff;
+  font-variant-numeric:tabular-nums; letter-spacing:-.03em}
+button.pin.multi .bd{box-shadow:0 0 0 2px var(--gold)}
+button.pin.dim{opacity:.17}
+button.pin.dim .bd{background:var(--mute)}
+button.pin.on{z-index:40}
+button.pin.on .bd{background:var(--brick-deep); transform:scale(1.32);
+  box-shadow:0 0 0 3px var(--gold), 0 0 0 6px rgba(184,129,31,.28)}
+button.pin.on .bd::after{background:var(--brick-deep)}
+button.pin:focus-visible{outline:none}
+button.pin:focus-visible .bd{box-shadow:0 0 0 3px var(--ink), 0 0 0 6px rgba(255,255,255,.7)}
+button.pin.clustered{display:none}
+
+/* several sales too close together to tap individually collapse into one
+   badge; gold already means "more than one" via .multi, so reuse it here */
+button.clusterbtn{
+  position:absolute; top:0; left:0; pointer-events:auto;
+  transform-origin:50% 50%; border:0; padding:0; background:none; cursor:pointer;
+  width:36px; height:36px; margin:-18px 0 0 -18px;
+  filter:drop-shadow(0 2px 4px rgba(36,26,23,.36));
+}
+button.clusterbtn[hidden]{display:none}
+button.clusterbtn .cbd{
+  width:36px; height:36px; border-radius:50%; background:var(--gold);
+  border:2.5px solid var(--surface); display:grid; place-items:center;
+  box-shadow:0 0 0 3px rgba(184,129,31,.24);
+}
+button.clusterbtn .cn{font-family:var(--mono); font-weight:600; font-size:14px; color:#fff;
+  font-variant-numeric:tabular-nums; letter-spacing:-.03em}
+button.clusterbtn:hover .cbd{transform:scale(1.08)}
+button.clusterbtn:focus-visible{outline:none}
+button.clusterbtn:focus-visible .cbd{box-shadow:0 0 0 3px var(--ink), 0 0 0 6px rgba(255,255,255,.7)}
+
+/* small chevrons along the walking loop so its direction of travel still
+   reads where the dashed line crosses itself in the dense blocks */
+.rtA{position:absolute; top:0; left:0; width:11px; height:11px; margin:-5.5px 0 0 -5.5px;
+  pointer-events:none; opacity:.6}
+.rtA svg{display:block; width:100%; height:100%}
+#pinlayer.noroute .rtA{display:none}
+
+.mapui{position:absolute; display:flex; gap:6px; z-index:50}
+.mapui.tr{top:9px; right:9px; flex-direction:column}
+.mapui.bl{bottom:9px; left:9px; align-items:center}
+button.mbtn{
+  width:32px; height:32px; border-radius:8px; border:1px solid var(--line);
+  background:var(--surface); color:var(--ink); cursor:pointer; font-size:16px;
+  display:grid; place-items:center; box-shadow:var(--shadow); font-family:var(--body);
+  line-height:1; padding:0;
+}
+button.mbtn:hover{background:var(--sunk); border-color:var(--ink-2)}
+button.mbtn:focus-visible{outline:2px solid var(--brick); outline-offset:2px}
+button.mbtn[aria-pressed="true"]{background:var(--brick); border-color:var(--brick); color:#fff}
+button.mbtn.wide{width:auto; padding:0 11px; font-size:11.5px; font-weight:600;
+  letter-spacing:.02em; gap:5px; text-transform:uppercase; font-family:var(--mono)}
+.scalebar{
+  background:color-mix(in srgb, var(--surface) 88%, transparent); border:1px solid var(--line);
+  border-radius:7px; padding:4px 8px; font-family:var(--mono); font-size:11px;
+  color:var(--ink-2); box-shadow:var(--shadow); display:flex; align-items:center; gap:7px;
+  font-variant-numeric:tabular-nums;
+}
+.scalebar i{display:block; height:4px; border:1px solid var(--ink-2);
+  border-top:0; background:none}
+
+/* ---------- landmarks ---------- */
+.lm{
+  position:absolute; top:0; left:0; width:20px; height:20px; margin:-10px 0 0 -10px;
+  transform-origin:10px 10px; pointer-events:none; z-index:20;
+}
+.lm .dot{
+  position:absolute; inset:0; border-radius:6px;
+  background:var(--basil); color:#fff; display:grid; place-items:center;
+  border:2px solid var(--surface); box-shadow:0 1px 3px rgba(36,26,23,.32);
+}
+.lm .dot svg{width:12px; height:12px}
+.lm .lbl{
+  position:absolute; left:25px; top:50%; transform:translateY(-50%);
+  font-family:var(--mono); font-size:9.5px; font-weight:500; text-transform:uppercase;
+  letter-spacing:.05em; color:var(--basil); background:var(--surface);
+  border-radius:4px; padding:2px 5px; box-shadow:0 1px 2px rgba(36,26,23,.16);
+  white-space:nowrap;
+}
+.lm.flip .lbl{left:auto; right:25px}
+#pinlayer.nolm .lm{display:none}
+button.mbtn.lmb[aria-pressed="true"]{background:var(--basil); border-color:var(--basil)}
+
+/* ---------- start-of-loop controls ---------- */
+.lhead .from{font-family:var(--mono); font-size:11px; color:var(--mute);
+  margin-left:auto; font-weight:500; white-space:nowrap; overflow:hidden;
+  text-overflow:ellipsis; min-width:0}
+#startreset{flex:none}
+button.startbtn{
+  margin-top:9px; width:100%; font-family:var(--mono); font-size:11px; font-weight:500;
+  letter-spacing:.04em; text-transform:uppercase; color:var(--basil);
+  background:var(--surface); border:1px solid var(--basil); border-radius:7px;
+  padding:6px 8px; cursor:pointer;
+}
+button.startbtn:hover{background:var(--basil); color:#fff}
+button.startbtn:focus-visible{outline:2px solid var(--basil); outline-offset:2px}
+.startnow{margin-top:9px; font-family:var(--mono); font-size:11px; font-weight:500;
+  letter-spacing:.04em; text-transform:uppercase; color:#fff; background:var(--basil);
+  border-radius:6px; padding:5px 8px; text-align:center}
+
+/* ---------- popup ---------- */
+#pop{
+  position:absolute; z-index:60; width:min(290px, calc(100% - 22px));
+  background:var(--surface); border:1px solid var(--line); border-radius:11px;
+  box-shadow:var(--shadow-pop); padding:12px 13px 13px; font-size:13px;
+}
+#pop[hidden]{display:none!important}
+#pop .x{position:absolute; top:5px; right:6px; border:0; background:none; cursor:pointer;
+  color:var(--mute); font-size:17px; line-height:1; padding:4px 6px; border-radius:6px}
+#pop .x:hover{color:var(--brick); background:var(--line-soft)}
+#pop .hd{display:flex; gap:9px; align-items:baseline; padding-right:20px}
+#pop .num{font-family:var(--mono); font-size:11px; font-weight:500; color:#fff;
+  background:var(--brick); border-radius:5px; padding:2px 6px; flex:none}
+#pop .ad{font-family:var(--display); font-size:14.5px; text-transform:uppercase;
+  letter-spacing:-.01em; line-height:1.2}
+#pop .vn{color:var(--basil); font-size:12px; font-weight:600; margin-top:3px}
+#pop .it{margin:9px 0 0; color:var(--ink-2); font-size:12.5px; line-height:1.45;
+  max-height:132px; overflow-y:auto}
+#pop .it + .it{border-top:1px dashed var(--line); padding-top:8px}
+
+/* ---------- list ---------- */
+.lhead{flex:none; display:flex; flex-direction:column; gap:5px; padding:0 2px 8px}
+.lhead-row{display:flex; align-items:baseline; gap:8px}
+.lhead h2{font-family:var(--display); font-size:11.5px; text-transform:uppercase;
+  letter-spacing:.075em; margin:0; color:var(--mute)}
+.lhead .hint{margin:0; font-size:11.5px; color:var(--mute); line-height:1.4}
+#list{flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain;
+  display:flex; flex-direction:column; gap:7px; padding:1px 2px 2px}
+.stgroup{font-family:var(--display); font-size:11px; text-transform:uppercase;
+  letter-spacing:.1em; color:var(--brick); padding:9px 2px 1px;
+  display:flex; align-items:center; gap:8px}
+.stgroup::after{content:""; height:1px; flex:1; background:var(--line)}
+.stgroup:first-child{padding-top:0}
+
+article.card{
+  background:var(--surface); border:1px solid var(--line); border-radius:10px;
+  padding:10px 11px; cursor:pointer; display:grid;
+  grid-template-columns:28px 1fr; gap:10px; align-items:start;
+  transition:border-color .12s, box-shadow .12s, background .12s; text-align:left;
+}
+article.card:hover{border-color:var(--ink-2); box-shadow:var(--shadow)}
+article.card.on{border-color:var(--brick); box-shadow:0 0 0 2px rgba(166,51,40,.17), var(--shadow);
+  background:color-mix(in srgb, var(--brick) 4%, var(--surface))}
+article.card:focus-visible{outline:2px solid var(--brick); outline-offset:1px}
+.cnum{font-family:var(--mono); font-weight:500; font-size:12px; color:var(--brick);
+  background:var(--sunk); border-radius:7px; height:26px; display:grid;
+  place-items:center; font-variant-numeric:tabular-nums}
+article.card.on .cnum{background:var(--brick); color:#fff}
+.cad{font-family:var(--mono); font-size:13.5px; font-weight:500; letter-spacing:-.015em;
+  line-height:1.25; color:var(--ink)}
+.cvn{font-size:11.5px; color:var(--basil); font-weight:600; margin-top:1px}
+.cit{font-size:12.5px; color:var(--ink-2); line-height:1.42; margin-top:5px;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+  overflow:hidden}
+article.card.on .cit{-webkit-line-clamp:unset; display:block}
+.ctags{display:flex; flex-wrap:wrap; gap:4px; margin-top:7px}
+.tg{font-size:11px; font-weight:600; letter-spacing:.015em; color:var(--ink-2);
+  background:var(--sunk); border-radius:5px; padding:2px 6px; white-space:nowrap}
+.tg.hit{background:color-mix(in srgb, var(--brick) 15%, var(--sunk)); color:var(--brick)}
+.tg.cash{background:color-mix(in srgb, var(--basil) 13%, var(--sunk)); color:var(--basil)}
+.approx{font-size:10.5px; color:var(--gold); font-weight:600; margin-top:5px;
+  display:flex; gap:4px; align-items:center}
+.golink{display:inline-flex; align-items:center; gap:4px; font-family:var(--mono);
+  font-size:11px; color:var(--brick); text-decoration:none; margin-top:8px;
+  font-weight:500; border:1px solid var(--line); border-radius:6px; padding:3px 7px}
+.golink:hover{background:var(--sunk); border-color:var(--brick)}
+.empty{text-align:center; color:var(--mute); font-size:13px; padding:30px 14px}
+.empty b{display:block; font-family:var(--display); font-size:13px; color:var(--ink);
+  text-transform:uppercase; margin-bottom:5px; letter-spacing:.02em}
+
+footer#foot{flex:none; padding:0 16px; max-width:1500px; margin:0 auto; width:100%;
+  color:var(--mute); font-size:11px; line-height:1.5;
+  padding-block-end:calc(12px + env(safe-area-inset-bottom,0px))}
+footer#foot a{color:var(--mute)}
+
+/* ---------- phone ---------- */
+@media (max-width:860px){
+  /* one swipeable row of filters instead of five stacked ones, so the map
+     stays near the top of a phone screen */
+  .crow.scrollrow{
+    flex-wrap:nowrap; overflow-x:auto; overflow-y:hidden;
+    margin:0 -16px; padding:2px 16px 4px;
+    scrollbar-width:none; -webkit-overflow-scrolling:touch;
+    /* a soft fade at the right edge hints there are more chips to scroll to,
+       instead of letting the row cut a chip off mid-word with no warning */
+    -webkit-mask-image:linear-gradient(to right, var(--ink) calc(100% - 28px), transparent 100%);
+    mask-image:linear-gradient(to right, var(--ink) calc(100% - 28px), transparent 100%);
+  }
+  .crow.scrollrow::-webkit-scrollbar{display:none}
+  .crow.scrollrow > *{flex:none}
+  .crow.scrollrow .chips{flex-wrap:nowrap}
+  .crow.scrollrow .sep{align-self:center; height:22px}
+  /* a phone scrolls the page instead of nesting a short scroller inside a
+     locked screen; the map sticks to the top so it stays in view while the
+     list runs past it */
+  html, body{height:auto}
+  #app{height:auto; min-height:100%}
+  #split{flex-direction:column; padding:10px 16px 12px; gap:10px}
+  #mapcol{
+    flex:none; height:46vh; min-height:260px;
+    position:sticky; top:env(safe-area-inset-top, 0px); z-index:5;
+    background:var(--paper); padding-bottom:9px;
+  }
+  #listcol{flex:0 0 auto; max-width:none; min-height:0}
+  #list{overflow:visible; min-height:0}
+  .whenbox{margin-left:0; width:100%}
+  .tally{margin-left:0}
+  .lhead-row{flex-wrap:wrap; gap:4px}
+  .lhead .from{margin-left:0; flex-basis:100%}
+}
+@media (max-width:520px){
+  .mast h1{font-size:20px}
+  .search{max-width:none; flex-basis:100%}
+  #mapcol{height:44vh}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important; animation:none!important}}
+
+@media print{
+  /* paper is always light, regardless of the viewer's on-screen theme — without
+     this, printing from a dark-mode browser session resolves --ink/--mute to
+     their light, near-white dark-mode values against the forced white page */
+  :root{
+    color-scheme:light;
+    --brick:#A63328; --brick-deep:#7E241C; --basil:#2E6B41; --gold:#B8811F;
+    --ink:#241A17; --ink-2:#4A3B35; --mute:#6C5D55;
+    --paper:#FAF7F4; --surface:#FFFFFF; --sunk:#F1EBE6;
+    --line:#E4DBD4; --line-soft:#EFE8E3;
+    --map-bg:#F0EAE4; --map-block:#E7DFD8; --map-road:#FFFFFF;
+    --map-road-edge:#D8CDC4; --map-park:#D5E2D2; --map-rail:#C9BDB4;
+  }
+  #controls,.mapui,#pop,.golink{display:none!important}
+  #app{height:auto} #split{flex-direction:column; padding:0}
+  #mapcol{height:8.5cm} #listcol{max-width:none}
+  #list{overflow:visible; display:block}
+  article.card{break-inside:avoid; page-break-inside:avoid; margin-bottom:5px; box-shadow:none}
+  .cit{-webkit-line-clamp:unset; display:block}
+  body{background:#fff}
+}
+</style>
+
+<div id="app">
+  <header id="top">
+    <div class="mast">
+      <div class="tri" aria-hidden="true"></div>
+      <div style="min-width:0">
+        <h1>The Hill <em>Yard Sale</em> Map</h1>
+        <p class="sub"><b id="nstops">59</b> sales &middot; <b id="nstreets">18</b> streets
+          &middot; <b id="nmiles"></b> mile loop &middot; The Hill, St. Louis 63110</p>
+      </div>
+      <div class="whenbox">
+        <span class="cal">Sat Sep 26</span>
+        <span class="hrs">8am &ndash; noon</span>
+        <span class="live" id="livepill" hidden></span>
+      </div>
+    </div>
+  </header>
+
+  <div id="controls">
+    <div class="cwrap">
+      <div class="crow">
+        <div class="search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+               stroke-linecap="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4.3-4.3"></path>
+          </svg>
+          <input id="q" type="search" placeholder="Search a street or an item&hellip;"
+                 autocomplete="off" aria-label="Search addresses and items">
+          <button class="clr" id="qclr" type="button" aria-label="Clear search" hidden>&times;</button>
+        </div>
+        <span class="tally" id="tally"></span>
+      </div>
+      <div class="crow scrollrow">
+        <div class="chips" id="chips" role="group" aria-label="Filter by what is for sale"></div>
+        <div class="sep" aria-hidden="true"></div>
+        <button class="chip pay" id="paymore" type="button" aria-pressed="false">
+          Takes cards or apps <span class="k" id="kmore"></span>
+        </button>
+        <button class="chip cashy" id="paycash" type="button" aria-pressed="false">
+          Cash only <span class="k" id="kcash"></span>
+        </button>
+        <button class="reset" id="reset" type="button" hidden>Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="split">
+    <div id="mapcol">
+      <div id="mapshell">
+        <svg id="mapsvg" aria-label="Street map of the sale locations" role="img"></svg>
+        <div id="pinlayer"></div>
+        <div class="mapui tr">
+          <button class="mbtn" id="zin" type="button" aria-label="Zoom in">+</button>
+          <button class="mbtn" id="zout" type="button" aria-label="Zoom out">&minus;</button>
+          <button class="mbtn lmb" id="lmbtn" type="button" aria-pressed="true"
+                  aria-label="Show landmarks" title="Landmarks">
+            <svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor"
+                 stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M10 18s5.5-5.2 5.5-9a5.5 5.5 0 10-11 0c0 3.8 5.5 9 5.5 9z"></path>
+              <circle cx="10" cy="8.7" r="1.9"></circle>
+            </svg>
+          </button>
+          <button class="mbtn" id="rtbtn" type="button" aria-pressed="false"
+                  aria-label="Show the walking route" title="Walking route">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+                 stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5 19c0-3 3-3 5-4s3-2 1-4-4-1-5-3"></path>
+              <circle cx="5" cy="19" r="1.6" fill="currentColor" stroke="none"></circle>
+              <circle cx="17" cy="6" r="1.6" fill="currentColor" stroke="none"></circle>
+              <path d="M13 6h4"></path>
+            </svg>
+          </button>
+          <button class="mbtn" id="zfit" type="button" aria-label="Fit all sales" title="Fit all">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+                 stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 9V5a1 1 0 011-1h4M20 9V5a1 1 0 00-1-1h-4M4 15v4a1 1 0 001 1h4M20 15v4a1 1 0 01-1 1h-4"></path>
+            </svg>
+          </button>
+        </div>
+        <div class="mapui bl">
+          <div class="scalebar"><span id="scaletxt">0.1 mi</span><i id="scalebar" style="width:52px"></i></div>
+        </div>
+        <div id="pop" hidden role="dialog" aria-label="Sale details"></div>
+      </div>
+    </div>
+
+    <div id="listcol">
+      <div class="lhead">
+        <div class="lhead-row">
+          <h2 id="listhead">Walk it in order</h2>
+          <span class="from" id="startfrom"></span>
+          <button class="reset" id="startreset" type="button" hidden>Default start</button>
+        </div>
+        <p class="hint">Tap the sale closest to you, then choose &ldquo;Start the loop here&rdquo; to walk from there in order.</p>
+      </div>
+      <div id="list"></div>
+    </div>
+  </div>
+
+  <footer id="foot">
+    <p id="footnote"></p>
+  </footer>
+</div>
+
+<script id="geomdata" type="application/json">__GEOM__</script>
+<script id="stopdata" type="application/json">__STOPS__</script>
+<script id="routemeta" type="application/json">__META__</script>
+<script>
+(function(){
+"use strict";
+var GEOM  = JSON.parse(document.getElementById('geomdata').textContent);
+var STOPS = JSON.parse(document.getElementById('stopdata').textContent);
+var META  = JSON.parse(document.getElementById('routemeta').textContent);
+
+var G_CHURCH='<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.9" '+
+  'stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v3"/><path d="M8.5 3.4h3"/>'+
+  '<path d="M10 6.2 5.8 9.8V17h8.4V9.8z"/></svg>';
+var G_HALL='<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.9" '+
+  'stroke-linecap="round" stroke-linejoin="round"><path d="M4 17V6.5L10 3l6 3.5V17"/>'+
+  '<path d="M8 17v-4.2h4V17"/></svg>';
+var G_TREE='<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.9" '+
+  'stroke-linecap="round" stroke-linejoin="round"><path d="M10 17v-3.6"/>'+
+  '<circle cx="10" cy="8.6" r="4.6"/></svg>';
+
+/* orientation only — not sales. Church position from the OpenStreetMap building,
+   park centre from its boundary polygon. */
+var LANDMARKS=[
+  {name:"St. Ambrose Catholic Church", short:"St. Ambrose", addr:"5130 Wilson Ave",
+   lat:38.615433, lon:-90.272408, glyph:G_CHURCH},
+  {name:"The Hill Neighborhood Center", short:"Neighborhood Ctr", addr:"1935 Marconi Ave",
+   lat:38.617238, lon:-90.272598, glyph:G_HALL},
+  {name:"Berra Park", short:"Berra Park", addr:"Macklind & Shaw",
+   lat:38.617945, lon:-90.278066, glyph:G_TREE}
+];
+
+var shell = document.getElementById('mapshell');
+var svg   = document.getElementById('mapsvg');
+var layer = document.getElementById('pinlayer');
+var pop   = document.getElementById('pop');
+var listEl= document.getElementById('list');
+
+/* ---------------- projection ---------------- */
+var lats = STOPS.map(function(s){return s.lat;});
+var lons = STOPS.map(function(s){return s.lon;});
+var B = { s:Math.min.apply(null,lats), n:Math.max.apply(null,lats),
+          w:Math.min.apply(null,lons), e:Math.max.apply(null,lons) };
+var latRef = (B.n+B.s)/2, kx = Math.cos(latRef*Math.PI/180);
+var PAD = 0.09;                               /* breathing room around the pins, in bbox widths */
+var span = { lon:(B.e-B.w), lat:(B.n-B.s) };
+var V = { w:B.w-span.lon*PAD, e:B.e+span.lon*PAD, s:B.s-span.lat*PAD, n:B.n+span.lat*PAD };
+
+var W=0, H=0, base=1, ox=0, oy=0;
+function measure(){
+  var r = shell.getBoundingClientRect();
+  W = Math.max(1, Math.round(r.width)); H = Math.max(1, Math.round(r.height));
+  var vw = (V.e-V.w)*kx, vh = (V.n-V.s);
+  base = Math.min(W/vw, H/vh);
+  ox = (W - vw*base)/2; oy = (H - vh*base)/2;
+  svg.setAttribute('viewBox','0 0 '+W+' '+H);
+  measureUIRects();
+}
+function px(lat,lon){ return [ (lon-V.w)*kx*base + ox, (V.n-lat)*base + oy ]; }
+
+/* the fixed map-control clusters (zoom/landmark/route buttons, the scale bar)
+   reserve their screen rect so street labels can duck out from under them —
+   this generalizes the flip-past-62%-width fix already used for landmarks */
+var uiRects=[];
+function measureUIRects(){
+  var sr = shell.getBoundingClientRect(), pad=10;
+  uiRects = Array.prototype.map.call(document.querySelectorAll('.mapui'), function(el){
+    var r = el.getBoundingClientRect();
+    return { l:r.left-sr.left-pad, r:r.right-sr.left+pad, t:r.top-sr.top-pad, b:r.bottom-sr.top+pad };
+  });
+}
+function pointInUI(x,y){
+  for(var i=0;i<uiRects.length;i++){
+    var r=uiRects[i];
+    if(x>=r.l && x<=r.r && y>=r.t && y<=r.b) return true;
+  }
+  return false;
+}
+
+/* ---------------- draw the streets ---------------- */
+var SVGNS='http://www.w3.org/2000/svg';
+function el(n,a){ var e=document.createElementNS(SVGNS,n);
+  for(var k in a) e.setAttribute(k,a[k]); return e; }
+function dOf(pts){
+  var d='M'+pts.map(function(p){ var q=px(p[0],p[1]);
+    return q[0].toFixed(1)+' '+q[1].toFixed(1); }).join('L'); return d;
+}
+var world;
+function drawMap(){
+  while(svg.firstChild) svg.removeChild(svg.firstChild);
+  world = el('g',{id:'world'});
+
+  var gGreen = el('g',{}), gRail = el('g',{}),
+      gCase = el('g',{fill:'none','stroke-linecap':'round','stroke-linejoin':'round'}),
+      gRoad = el('g',{fill:'none','stroke-linecap':'round','stroke-linejoin':'round'}),
+      gLab  = el('g',{id:'labels'}),
+      gRoute= el('g',{id:'route'});
+
+  GEOM.green.forEach(function(g){
+    gGreen.appendChild(el('path',{ d:dOf(g.p)+'Z',
+      fill: g.k==='park' ? 'var(--map-park)' : 'var(--map-park)',
+      opacity: g.k==='park' ? '1' : '.6', stroke:'none' }));
+  });
+  GEOM.rail.forEach(function(r){
+    gRail.appendChild(el('path',{ d:dOf(r.p), fill:'none', stroke:'var(--map-rail)',
+      'stroke-width':2, 'stroke-dasharray':'1 5', 'vector-effect':'non-scaling-stroke' }));
+  });
+
+  var CW={1:5.4,2:8.2,3:12.4}, RW={1:3.4,2:6,3:9.6};
+  [gCase,gRoad].forEach(function(grp,i){
+    var isCase = i===0;
+    [1,2,3].forEach(function(t){
+      GEOM.roads.forEach(function(r){
+        if(r.t!==t) return;
+        grp.appendChild(el('path',{ d:dOf(r.p),
+          stroke: isCase ? 'var(--map-road-edge)' : 'var(--map-road)',
+          'stroke-width': isCase ? CW[t] : RW[t],
+          'vector-effect':'non-scaling-stroke' }));
+      });
+    });
+  });
+
+  /* one label per street name, on its longest straight run */
+  var best={};
+  GEOM.roads.forEach(function(r){
+    if(!r.n) return;
+    for(var i=0;i<r.p.length-1;i++){
+      var a=px(r.p[i][0],r.p[i][1]), b=px(r.p[i+1][0],r.p[i+1][1]);
+      var L=Math.hypot(b[0]-a[0], b[1]-a[1]);
+      if(!best[r.n] || L>best[r.n].L) best[r.n]={L:L,a:a,b:b,t:r.t};
+    }
+  });
+  Object.keys(best).forEach(function(name){
+    var s=best[name]; if(s.L < 46) return;
+    var ang=Math.atan2(s.b[1]-s.a[1], s.b[0]-s.a[0])*180/Math.PI;
+    if(ang>90) ang-=180; if(ang<-90) ang+=180;
+    var mx=(s.a[0]+s.b[0])/2, my=(s.a[1]+s.b[1])/2;
+    var short=name.replace(/ Avenue$/,' Ave').replace(/ Street$/,' St')
+                  .replace(/ Boulevard$/,' Blvd').replace(/ Place$/,' Pl')
+                  .replace(/^South /,'S ').replace(/^North /,'N ');
+    var g=el('g',{transform:'translate('+mx.toFixed(1)+','+my.toFixed(1)+') rotate('+ang.toFixed(1)+')',
+                  'data-len':Math.round(s.L), 'data-tier':s.t,
+                  'data-mx':mx.toFixed(1), 'data-my':my.toFixed(1)});
+    var txt=el('text',{ x:0, y:-5.2, 'text-anchor':'middle',
+      'font-family':'DM Mono, ui-monospace, monospace',
+      'font-size':11, 'letter-spacing':.3, fill:'var(--mute)',
+      stroke:'var(--map-bg)', 'stroke-width':3.8, 'paint-order':'stroke',
+      'stroke-linejoin':'round' });
+    txt.textContent = short.toUpperCase();
+    g.appendChild(txt); gLab.appendChild(g);
+  });
+
+  /* the walking loop, in stop order — closed, because it returns to the start.
+     Kept under the pins (SVG paints beneath #pinlayer) and dialed down a touch
+     from the arrows so it reads as the path, not the primary mark. */
+  var rpts = STOPS.map(function(s){ return [s.lat, s.lon]; });
+  gRoute.appendChild(el('path',{ d:dOf(rpts)+'Z', fill:'none', stroke:'var(--brick)',
+    'stroke-width':2.2, 'stroke-dasharray':'6 5', 'stroke-linecap':'round',
+    'stroke-linejoin':'round', opacity:'.45',
+    'vector-effect':'non-scaling-stroke' }));
+  gRoute.style.display = routeOn ? '' : 'none';
+
+  world.appendChild(gGreen); world.appendChild(gRail);
+  world.appendChild(gCase);  world.appendChild(gRoad);
+  world.appendChild(gRoute); world.appendChild(gLab);
+  svg.appendChild(world);
+  labelGroup = gLab; routeGroup = gRoute;
+}
+var labelGroup=null, routeGroup=null, routeOn=false;   /* off by default; the popup's own "start the loop here" flow is the primary path */
+
+/* ---------------- sale pins + landmarks ----------------
+   A stop's identity is its fixed position in the loop (s.i). The number
+   printed on it is derived from wherever the reader chose to start, so the
+   loop can be re-entered at any house without touching the route itself. */
+var N = STOPS.length;
+STOPS.forEach(function(s, i){ s.i = i; });
+
+var startAt = 0;
+try {
+  var saved = localStorage.getItem('hill-start');
+  if(saved !== null && +saved >= 0 && +saved < N) startAt = +saved;
+} catch(e){}
+
+function num(s){ return ((s.i - startAt + N) % N) + 1; }
+function ordered(){ return STOPS.slice(startAt).concat(STOPS.slice(0, startAt)); }
+function lastStop(){ return STOPS[(startAt - 1 + N) % N]; }
+
+var pins=[], lms=[], cards=[], sel=null, lmOn=true;
+var clusterBadges=[], badgeInfo=[], stopPos=[], arrowEls=[];
+var CLUSTER_PX = 32;   /* screen-px: pin centers closer than this collapse into one badge */
+
+function buildPins(){
+  layer.innerHTML='<div id="routearrows" aria-hidden="true"></div>';
+  var routeArrowsEl = document.getElementById('routearrows');
+  pins = STOPS.map(function(s){
+    var b=document.createElement('button');
+    b.type='button'; b.className='pin'+(s.sellers.length>1?' multi':'');
+    b.innerHTML='<span class="bd"><span class="n"></span></span>';
+    b.addEventListener('click', function(ev){ ev.stopPropagation(); select(s.i, true); });
+    layer.appendChild(b); return b;
+  });
+  lms = LANDMARKS.map(function(m){
+    var d=document.createElement('div');
+    d.className='lm';
+    d.setAttribute('role','img');
+    d.setAttribute('aria-label','Landmark: '+m.name+', '+m.addr);
+    d.innerHTML='<span class="dot">'+m.glyph+'</span><span class="lbl">'+esc(m.short)+'</span>';
+    layer.appendChild(d); return d;
+  });
+  /* one badge per stop is the safe upper bound on how many clusters can ever
+     exist at once; unused ones just stay hidden */
+  clusterBadges = STOPS.map(function(s, idx){
+    var b=document.createElement('button');
+    b.type='button'; b.className='clusterbtn'; b.hidden=true;
+    b.innerHTML='<span class="cbd"><span class="cn"></span></span>';
+    b.addEventListener('click', function(ev){
+      ev.stopPropagation();
+      var info = badgeInfo[idx]; if(!info) return;
+      var cx=info.cx*k+tx, cy=info.cy*k+ty;
+      var targetK = info.maxD>0 ? (CLUSTER_PX*1.7)/info.maxD : k*2.2;
+      zoomAt(cx, cy, Math.max(1.3, targetK/k));
+    });
+    layer.appendChild(b); return b;
+  });
+  /* one chevron per route segment, so the walking direction still reads
+     where the dashed loop line crosses itself in the dense blocks */
+  arrowEls = STOPS.map(function(){
+    var d=document.createElement('div');
+    d.className='rtA';
+    d.innerHTML='<svg viewBox="0 0 10 10"><path d="M2 1 L7 5 L2 9" fill="none" '+
+      'stroke="var(--brick)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    routeArrowsEl.appendChild(d);
+    return {el:d, ang:0};
+  });
+  syncNumbers();
+}
+function syncNumbers(){
+  STOPS.forEach(function(s,i){
+    var n=num(s);
+    pins[i].firstChild.firstChild.textContent=n;
+    pins[i].setAttribute('aria-label','Stop '+n+' of '+N+', '+s.addr+
+      (s.sellers.length>1?', '+s.sellers.length+' sales':''));
+  });
+}
+function placePins(){
+  STOPS.forEach(function(s,i){
+    var q=px(s.lat,s.lon);
+    stopPos[i]=q;
+    pins[i].style.left=q[0].toFixed(1)+'px';
+    pins[i].style.top =q[1].toFixed(1)+'px';
+  });
+  LANDMARKS.forEach(function(m,i){
+    var q=px(m.lat,m.lon);
+    lms[i].style.left=q[0].toFixed(1)+'px';
+    lms[i].style.top =q[1].toFixed(1)+'px';
+  });
+  STOPS.forEach(function(s,i){
+    var a=stopPos[i], b=stopPos[(i+1)%N];
+    var mx=(a[0]+b[0])/2, my=(a[1]+b[1])/2;
+    var ang=Math.atan2(b[1]-a[1], b[0]-a[0])*180/Math.PI;
+    var o=arrowEls[i];
+    o.ang=ang;
+    o.el.style.left=mx.toFixed(1)+'px'; o.el.style.top=my.toFixed(1)+'px';
+  });
+  lastClusterKey=null;   /* positions moved; re-cluster on the next apply() */
+}
+function setStart(i){
+  startAt=i;
+  try{ localStorage.setItem('hill-start', String(i)); }catch(e){}
+  syncNumbers(); syncStartUI(); render();
+  if(sel!==null) select(sel);
+}
+function syncStartUI(){
+  /* no house is "the" start until a reader picks one — matches the route
+     line defaulting to off, so the map doesn't imply a fixed walking order */
+  document.getElementById('startfrom').textContent =
+    startAt===0 ? '' : 'from '+STOPS[startAt].addr;
+  document.getElementById('startreset').hidden = (startAt===0);
+  var fn=document.getElementById('footnote');
+  if(fn) fn.innerHTML=footnoteHTML();
+}
+function footnoteHTML(){
+  var base='<b>Saturday, September 26, 2026 &middot; 8am to noon.</b> '+
+    'A walking loop of about '+META.loop_mi+' miles through '+N+' sales. ';
+  var pick = startAt===0
+    ? 'Tap any house and choose &ldquo;start the loop here&rdquo; to number the list from there.'
+    : 'As numbered here it starts at <b>'+esc(STOPS[startAt].addr)+'</b> and ends nearby at <b>'+
+      esc(lastStop().addr)+'</b>. Any house can be the start: open it and choose &ldquo;start the loop here&rdquo;.';
+  /* OSM's ODbL requires the "OpenStreetMap contributors" credit to stay wherever
+     this street geometry is shown, so it stays alongside the requested byline
+     rather than being replaced by it */
+  return base+pick+' Green markers are landmarks, not sales. Map courtesy of Jim Barnthouse. '+
+    'Street geometry &copy; OpenStreetMap contributors.';
+}
+
+/* ---------------- pan + zoom ---------------- */
+var k=1, tx=0, ty=0, MINK=0.55, MAXK=14;
+function apply(){
+  var m='translate('+tx.toFixed(2)+'px,'+ty.toFixed(2)+'px) scale('+k.toFixed(4)+')';
+  if(world) world.setAttribute('transform',
+    'translate('+tx.toFixed(2)+','+ty.toFixed(2)+') scale('+k.toFixed(4)+')');
+  layer.style.transform=m;
+  layer.style.setProperty('--inv', 1/k);
+  var pk = Math.min(1, Math.max(0.70, 0.70 + 0.30*(k-1)/1.5));
+  var f = (pk/k).toFixed(4);
+  pins.forEach(function(p){ p.style.transform='scale('+f+')'; });
+  clusterBadges.forEach(function(b){ b.style.transform='scale('+f+')'; });
+  arrowEls.forEach(function(o){ o.el.style.transform='rotate('+o.ang.toFixed(1)+'deg) scale('+f+')'; });
+  var lf=(1/k).toFixed(4);
+  lms.forEach(function(d,i){
+    d.style.transform='scale('+lf+')';
+    var q=px(LANDMARKS[i].lat, LANDMARKS[i].lon);
+    d.classList.toggle('flip', (q[0]*k+tx) > W*0.62);
+  });
+  updateClusters();
+  updLabels(); updScale(); if(sel!==null) placePop(sel);
+}
+/* labels: keep text a constant screen size by scaling font instead of the group,
+   and hide the rare label whose anchor point would fall under a fixed map
+   control (zoom/landmark/route buttons, the scale bar) — those overlaps were
+   confirmed by the design detector, not just landmark-vs-pin proximity */
+function updLabels(){
+  if(!labelGroup) return;
+  var fs=(11/k), sw=(3.8/k);
+  for(var i=0;i<labelGroup.childNodes.length;i++){
+    var g=labelGroup.childNodes[i], t=g.firstChild;
+    var len=+g.getAttribute('data-len'), tier=+g.getAttribute('data-tier');
+    var show = (len*k > 62) && (k>1.45 || tier>=2 || len*k>150);
+    if(show){
+      var mx=+g.getAttribute('data-mx'), my=+g.getAttribute('data-my');
+      if(pointInUI(mx*k+tx, my*k+ty)) show=false;
+    }
+    g.style.display = show ? '' : 'none';
+    t.setAttribute('font-size', fs.toFixed(2));
+    t.setAttribute('stroke-width', sw.toFixed(2));
+    t.setAttribute('y', (-5.2/k).toFixed(2));
+    t.setAttribute('letter-spacing', (0.3/k).toFixed(3));
+  }
+}
+/* ---------------- dense-block pin clustering ----------------
+   Screen-space distance between two stops is (layer-local distance) * k, so
+   membership depends only on zoom, never on pan — recompute is keyed on k and
+   on the current selection, not run on every drag frame. */
+var lastClusterKey=null;
+function updateClusters(){
+  var key = k.toFixed(4)+'|'+sel;
+  if(key===lastClusterKey) return;
+  lastClusterKey=key;
+
+  var n=stopPos.length, adj=[];
+  for(var i=0;i<n;i++) adj[i]=[];
+  for(var i=0;i<n;i++){
+    if(i===sel) continue;
+    for(var j=i+1;j<n;j++){
+      if(j===sel) continue;
+      var dx=stopPos[i][0]-stopPos[j][0], dy=stopPos[i][1]-stopPos[j][1];
+      if(Math.hypot(dx,dy)*k < CLUSTER_PX){ adj[i].push(j); adj[j].push(i); }
+    }
+  }
+  var seen={}, comps=[];
+  for(var i=0;i<n;i++){
+    if(seen[i]||i===sel) continue;
+    var stack=[i], comp=[]; seen[i]=1;
+    while(stack.length){
+      var u=stack.pop(); comp.push(u);
+      adj[u].forEach(function(v){ if(!seen[v]){ seen[v]=1; stack.push(v); } });
+    }
+    comps.push(comp);
+  }
+
+  var badgeIdx=0, clustered={};
+  comps.forEach(function(comp){
+    if(comp.length<2) return;
+    comp.forEach(function(i){ clustered[i]=1; });
+    var cx=0, cy=0;
+    comp.forEach(function(i){ cx+=stopPos[i][0]; cy+=stopPos[i][1]; });
+    cx/=comp.length; cy/=comp.length;
+    var maxD=0;
+    for(var a=0;a<comp.length;a++) for(var b=a+1;b<comp.length;b++){
+      var ddx=stopPos[comp[a]][0]-stopPos[comp[b]][0], ddy=stopPos[comp[a]][1]-stopPos[comp[b]][1];
+      maxD=Math.max(maxD, Math.hypot(ddx,ddy));
+    }
+    var idx=badgeIdx++, badge=clusterBadges[idx];
+    badge.hidden=false;
+    badge.style.left=cx.toFixed(1)+'px'; badge.style.top=cy.toFixed(1)+'px';
+    badge.firstChild.firstChild.textContent=comp.length;
+    var streets={}; comp.forEach(function(i){ streets[STOPS[i].street]=1; });
+    badge.setAttribute('aria-label', comp.length+' sales near '+
+      Object.keys(streets).slice(0,2).join(' & ')+', tap to zoom in');
+    badgeInfo[idx]={cx:cx, cy:cy, maxD:maxD};
+  });
+  for(var r=badgeIdx; r<clusterBadges.length; r++) clusterBadges[r].hidden=true;
+  pins.forEach(function(p,i){ p.classList.toggle('clustered', !!clustered[i]); });
+}
+var RULERS=[[30.48,'100 ft'],[76.2,'250 ft'],[152.4,'500 ft'],
+             [402.34,'0.25 mi'],[804.67,'0.5 mi'],[1609.34,'1 mi']];
+function updScale(){
+  var mpp = 111320/(base*k);          /* metres per screen pixel */
+  var pick = RULERS[0], w = pick[0]/mpp;
+  for(var i=0;i<RULERS.length;i++){
+    var p = RULERS[i][0]/mpp;
+    if(p>=46){ pick=RULERS[i]; w=p; break; }
+    pick=RULERS[i]; w=p;
+  }
+  document.getElementById('scalebar').style.width = Math.max(18, Math.min(150, w)).toFixed(0)+'px';
+  document.getElementById('scaletxt').textContent = pick[1];
+}
+function clamp(){
+  k = Math.max(MINK, Math.min(MAXK, k));
+  /* keep at least `keep` px of the drawing inside the frame on every edge */
+  var keep = Math.min(W, H) * 0.42;
+  tx = Math.max(keep - W*k, Math.min(W - keep, tx));
+  ty = Math.max(keep - H*k, Math.min(H - keep, ty));
+}
+function fit(){ k=1; tx=0; ty=0; apply(); }
+function zoomAt(cx,cy,f){
+  var nk=Math.max(MINK,Math.min(MAXK,k*f));
+  f=nk/k; if(f===1) return;
+  tx = cx - (cx-tx)*f; ty = cy - (cy-ty)*f; k=nk; clamp(); apply();
+}
+shell.addEventListener('wheel', function(e){
+  e.preventDefault();
+  var r=shell.getBoundingClientRect();
+  zoomAt(e.clientX-r.left, e.clientY-r.top, e.deltaY<0?1.14:1/1.14);
+}, {passive:false});
+
+var ptr={}, np=0, lastMid=null, lastDist=0, moved=false;
+shell.addEventListener('pointerdown', function(e){
+  if(e.target.closest('button.pin')||e.target.closest('button.clusterbtn')||
+     e.target.closest('#pop')||e.target.closest('.mapui')) return;
+  shell.setPointerCapture(e.pointerId);
+  ptr[e.pointerId]={x:e.clientX,y:e.clientY}; np++; moved=false;
+  if(np===1) shell.classList.add('drag');
+  if(np===2){ var p=vals(); lastDist=dist(p[0],p[1]); lastMid=mid(p[0],p[1]); }
+});
+function vals(){ return Object.keys(ptr).map(function(i){return ptr[i];}); }
+function dist(a,b){ return Math.hypot(a.x-b.x,a.y-b.y); }
+function mid(a,b){ return {x:(a.x+b.x)/2,y:(a.y+b.y)/2}; }
+shell.addEventListener('pointermove', function(e){
+  if(!ptr[e.pointerId]) return;
+  var prev=ptr[e.pointerId];
+  ptr[e.pointerId]={x:e.clientX,y:e.clientY};
+  var r=shell.getBoundingClientRect();
+  if(np===1){
+    var dx=e.clientX-prev.x, dy=e.clientY-prev.y;
+    if(Math.abs(dx)+Math.abs(dy)>2) moved=true;
+    tx+=dx; ty+=dy; clamp(); apply();
+  } else if(np>=2){
+    var p=vals(), d=dist(p[0],p[1]), m=mid(p[0],p[1]);
+    if(lastDist>0){
+      zoomAt(m.x-r.left, m.y-r.top, d/lastDist);
+      tx += (m.x-lastMid.x); ty += (m.y-lastMid.y); clamp(); apply();
+    }
+    lastDist=d; lastMid=m; moved=true;
+  }
+});
+function up(e){
+  if(!ptr[e.pointerId]) return;
+  delete ptr[e.pointerId]; np=Math.max(0,np-1);
+  if(np<2){ lastDist=0; lastMid=null; }
+  if(np===0){ shell.classList.remove('drag');
+    if(!moved && !e.target.closest('button.pin') && !e.target.closest('button.clusterbtn') &&
+       !e.target.closest('#pop')) select(null); }
+}
+shell.addEventListener('pointerup', up);
+shell.addEventListener('pointercancel', up);
+
+document.getElementById('zin').onclick  = function(){ zoomAt(W/2,H/2,1.5); };
+document.getElementById('zout').onclick = function(){ zoomAt(W/2,H/2,1/1.5); };
+document.getElementById('zfit').onclick = function(){ fit(); select(null); };
+var lmbtn=document.getElementById('lmbtn');
+lmbtn.onclick=function(){
+  lmOn=!lmOn;
+  lmbtn.setAttribute('aria-pressed', lmOn?'true':'false');
+  layer.classList.toggle('nolm', !lmOn);
+};
+var rtbtn=document.getElementById('rtbtn');
+rtbtn.onclick=function(){
+  routeOn=!routeOn;
+  rtbtn.setAttribute('aria-pressed', routeOn?'true':'false');
+  if(routeGroup) routeGroup.style.display = routeOn ? '' : 'none';
+  layer.classList.toggle('noroute', !routeOn);
+};
+
+/* ---------------- popup ---------------- */
+function esc(s){ return String(s).replace(/[&<>"]/g,function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+function popHTML(s){
+  var n=num(s);
+  var h='<button class="x" type="button" aria-label="Close">&times;</button>'+
+    '<div class="hd"><span class="num">'+n+'</span><div><div class="ad">'+esc(s.addr)+'</div>'+
+    (s.venue?'<div class="vn">'+esc(s.venue)+'</div>':'')+'</div></div>';
+  s.sellers.forEach(function(x){
+    h+='<p class="it">'+esc(x.items)+
+       '<br><span class="tg '+(x.cashOnly?'cash':'')+'" style="margin-top:5px;display:inline-block">'+
+       esc(x.pay)+'</span></p>';
+  });
+  h+= (s.i===startAt && startAt!==0)
+    ? '<div class="startnow">Loop starts here</div>'
+    : '<button class="startbtn" type="button" data-start="'+s.i+'">Start the loop here</button>';
+  h+='<a class="golink" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query='+
+     s.lat+'%2C'+s.lon+'">Directions &rarr;</a>';
+  return h;
+}
+function placePop(i){
+  var s=STOPS[i]; if(!s) return;
+  var q=px(s.lat,s.lon);
+  var sx=q[0]*k+tx, sy=q[1]*k+ty;
+  pop.hidden=false;
+  var pw=pop.offsetWidth, ph=pop.offsetHeight;
+  var L=sx-pw/2, T=sy-ph-30;
+  if(T<8) T=sy+16;
+  L=Math.max(8, Math.min(W-pw-8, L));
+  T=Math.max(8, Math.min(H-ph-8, T));
+  pop.style.left=L.toFixed(0)+'px'; pop.style.top=T.toFixed(0)+'px';
+}
+pop.addEventListener('click', function(e){
+  if(e.target.closest('.x')){ select(null); return; }
+  var sb=e.target.closest('.startbtn');
+  if(sb) setStart(+sb.dataset.start);
+});
+
+/* ---------------- selection ---------------- */
+function select(i, fromMap){
+  sel=i;
+  updateClusters();   /* the selected stop is always shown standalone, never clustered */
+  pins.forEach(function(p,j){ p.classList.toggle('on', j===i); });
+  cards.forEach(function(c){ if(c) c.classList.toggle('on', +c.dataset.i===i); });
+  if(i===null){ pop.hidden=true; return; }
+  pop.innerHTML=popHTML(STOPS[i]);
+  placePop(i);
+  var card=cards.find(function(c){ return c && +c.dataset.i===i; });
+  if(card && fromMap){
+    var lr=listEl.getBoundingClientRect(), cr=card.getBoundingClientRect();
+    if(cr.top<lr.top+4 || cr.bottom>lr.bottom-4)
+      listEl.scrollTop += (cr.top-lr.top) - lr.height/2 + cr.height/2;
+  }
+}
+function flyTo(i){
+  var s=STOPS[i], q=px(s.lat,s.lon);
+  k=Math.max(k,3.4);
+  tx=W/2-q[0]*k; ty=H/2-q[1]*k;
+  clamp(); apply();
+}
+
+/* ---------------- filters + list ---------------- */
+var ALLTAGS=[]; (function(){
+  var c={}; STOPS.forEach(function(s){ s.tags.forEach(function(t){ c[t]=(c[t]||0)+1; }); });
+  ALLTAGS=Object.keys(c).sort(function(a,b){ return c[b]-c[a] || a.localeCompare(b); })
+    .map(function(t){ return {t:t,c:c[t]}; });
+})();
+var active={}, qstr='', payMode=null;   /* null | 'more' | 'cash' */
+var chipsEl=document.getElementById('chips');
+ALLTAGS.forEach(function(o){
+  var b=document.createElement('button');
+  b.type='button'; b.className='chip'; b.setAttribute('aria-pressed','false');
+  b.innerHTML=esc(o.t)+' <span class="k">'+o.c+'</span>';
+  b.onclick=function(){
+    active[o.t]=!active[o.t];
+    b.setAttribute('aria-pressed', active[o.t]?'true':'false');
+    render();
+  };
+  chipsEl.appendChild(b);
+});
+var payMore=document.getElementById('paymore'), payCash=document.getElementById('paycash');
+document.getElementById('kmore').textContent = STOPS.filter(function(s){return s.beyond;}).length;
+document.getElementById('kcash').textContent = STOPS.filter(function(s){return s.cashOnly;}).length;
+function syncPay(){
+  payMore.setAttribute('aria-pressed', payMode==='more'?'true':'false');
+  payCash.setAttribute('aria-pressed', payMode==='cash'?'true':'false');
+}
+payMore.onclick=function(){ payMode = payMode==='more'?null:'more'; syncPay(); render(); };
+payCash.onclick=function(){ payMode = payMode==='cash'?null:'cash'; syncPay(); render(); };
+
+var qEl=document.getElementById('q'), qclr=document.getElementById('qclr');
+qEl.addEventListener('input', function(){ qstr=qEl.value.trim().toLowerCase();
+  qclr.hidden=!qstr; render(); });
+qclr.onclick=function(){ qEl.value=''; qstr=''; qclr.hidden=true; qEl.focus(); render(); };
+document.getElementById('reset').onclick=function(){
+  active={}; payMode=null; qstr=''; qEl.value=''; qclr.hidden=true;
+  Array.prototype.forEach.call(chipsEl.children,function(b){ b.setAttribute('aria-pressed','false'); });
+  syncPay(); render(); select(null);
+};
+document.getElementById('startreset').onclick=function(){ setStart(0); };
+
+function match(s){
+  var on=Object.keys(active).filter(function(t){ return active[t]; });
+  if(on.length && !on.every(function(t){ return s.tags.indexOf(t)>=0; })) return false;
+  if(payMode==='more' && !s.beyond) return false;
+  if(payMode==='cash' && !s.cashOnly) return false;
+  if(qstr){
+    var hay=(s.addr+' '+s.venue+' '+s.tags.join(' ')+' '+
+      s.sellers.map(function(x){return x.items+' '+x.pay;}).join(' ')).toLowerCase();
+    if(hay.indexOf(qstr)<0) return false;
+  }
+  return true;
+}
+function render(){
+  var shown=ordered().filter(match);
+  var on=Object.keys(active).filter(function(t){ return active[t]; });
+  var dirty = on.length || payMode || qstr;
+  document.getElementById('reset').hidden = !dirty;
+  document.getElementById('tally').innerHTML = dirty
+    ? '<b>'+shown.length+'</b> of '+N+' sales shown'
+    : N+' sales on '+new Set(STOPS.map(function(s){return s.street;})).size+' streets';
+
+  var keep={}; shown.forEach(function(s){ keep[s.i]=1; });
+  pins.forEach(function(p,i){ p.classList.toggle('dim', !keep[i]); });
+
+  listEl.innerHTML=''; cards=[];
+  if(!shown.length){
+    listEl.innerHTML='<div class="empty"><b>Nothing matches</b>'+
+      'Try fewer filters, or clear the search.</div>';
+    return;
+  }
+  var street=null;
+  shown.forEach(function(s){
+    if(s.street!==street){
+      street=s.street;
+      var h=document.createElement('div'); h.className='stgroup';
+      h.textContent=street.replace(/ Avenue$/,' Ave').replace(/ Street$/,' St');
+      listEl.appendChild(h);
+    }
+    var c=document.createElement('article');
+    c.className='card'; c.dataset.i=s.i; c.tabIndex=0;
+    c.setAttribute('role','button');
+    var items=s.sellers.map(function(x){return x.items;}).join('  \u2022  ');
+    var tags=s.tags.map(function(t){
+      return '<span class="tg'+(active[t]?' hit':'')+'">'+esc(t)+'</span>'; }).join('');
+    c.innerHTML='<div class="cnum">'+num(s)+'</div><div style="min-width:0">'+
+      '<div class="cad">'+esc(s.addr)+'</div>'+
+      (s.venue?'<div class="cvn">'+esc(s.venue)+'</div>':'')+
+      (s.sellers.length>1?'<div class="cvn" style="color:var(--gold)">'+
+         s.sellers.length+' households at this address</div>':'')+
+      '<div class="cit">'+esc(items)+'</div>'+
+      '<div class="ctags">'+tags+
+        (s.cashOnly?'<span class="tg cash">Cash only</span>':'')+'</div>'+
+      '<a class="golink" target="_blank" rel="noopener" '+
+        'href="https://www.google.com/maps/search/?api=1&query='+s.lat+'%2C'+s.lon+'">'+
+        'Directions &rarr;</a></div>';
+    function go(){ select(s.i); flyTo(s.i); }
+    c.addEventListener('click', function(e){ if(e.target.closest('a')) return; go(); });
+    c.addEventListener('keydown', function(e){
+      if(e.key==='Enter'||e.key===' '){ e.preventDefault(); go(); } });
+    listEl.appendChild(c); cards.push(c);
+  });
+  if(sel!==null && !keep[sel]) select(null);
+  else if(sel!==null) select(sel);
+}
+
+/* ---------------- boot ---------------- */
+document.getElementById('nstops').textContent = STOPS.length;
+document.getElementById('nstreets').textContent =
+  new Set(STOPS.map(function(s){return s.street;})).size;
+document.getElementById('nmiles').textContent = META.loop_mi;
+
+/* Saturday 26 September 2026, 8am-noon CDT (UTC-5) */
+var SALE_START = Date.parse('2026-09-26T08:00:00-05:00');
+var SALE_END   = Date.parse('2026-09-26T12:00:00-05:00');
+(function(){
+  var pill = document.getElementById('livepill');
+  function tick(){
+    var now = Date.now();
+    if(now >= SALE_START && now < SALE_END){
+      pill.hidden = false; pill.className = 'live on'; pill.textContent = 'Happening now';
+    } else if(now >= SALE_END){
+      pill.hidden = false; pill.className = 'live done'; pill.textContent = 'Ended';
+    } else {
+      pill.hidden = true;
+    }
+  }
+  tick(); setInterval(tick, 60000);
+})();
+
+function relayout(){
+  measure(); drawMap(); placePins(); apply();
+}
+layer.classList.toggle('noroute', !routeOn);
+buildPins(); syncStartUI(); relayout(); render();
+window.addEventListener('resize', function(){ relayout(); render(); });
+document.addEventListener('keydown', function(e){ if(e.key==='Escape') select(null); });
+})();
+</script>
