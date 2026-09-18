@@ -47,6 +47,14 @@ if [ ! -f walk.json ] || [ stops.json -nt walk.json ]; then
   python3 walk.py
 fi
 
+# graph.json is the street network the PAGE routes on at runtime, to draw the
+# walk from the reader's live position. Same staleness trap as walk.json.
+if [ ! -f graph.json ] || [ stops.json -nt graph.json ]; then
+  echo
+  echo "==> graph.py        OSM streets -> graph.json (runtime routing)"
+  python3 graph.py
+fi
+
 echo
 echo "==> inject.py       template + data -> dist/"
 python3 inject.py

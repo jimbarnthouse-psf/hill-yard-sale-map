@@ -128,6 +128,43 @@ What changed:
    leg. Burying the next-stop line behind a toggle is exactly what made the old
    route line invisible to everyone.
 
+#### Routing from the reader (eighth pass)
+
+Jim: default to closest-to-me, location on by default, centre on me when I ask,
+move the mode switch above the map, and **draw the path from my location to the
+sale rather than stop to stop**.
+
+That last one is the structural change: the reader's position isn't known until
+they open the page, so **the street graph now ships and the page runs Dijkstra
+itself**.
+
+- **`build/graph.py` -> `graph.json`** (`__GRAPH__`). 6,267 nodes, 6,939 edges,
+  plus each stop's snap-node index. Delta-coded integers at 1e-5 degrees: **69 KB
+  raw, 22 KB gzipped**, taking the page from 291 KB to 376 KB. The ~26k
+  street-crossing connectors are **not shipped** — they follow from the node
+  positions alone, so `graphReady()` rebuilds them in one grid pass at first use.
+  They are four fifths of the edges; shipping them would have tripled the cost.
+- `graphReady()` is lazy — a reader who never enables location never pays for it.
+  A route is ~20 ms measured, over 0.7 mi and 33 vertices.
+- **`buildLeg(i)`** draws the bold path from the reader to the sale they are
+  looking at, and falls back to the precomputed `WALK[i]` loop leg when there is
+  no position. `legPts`/`legDist`/`legFromMe` replaced the old "leg = index into
+  WALK" model, and `destStop()` changes meaning with it.
+- The 59 per-leg chevrons became **one chevron on the active path**. With the loop
+  faded to background context the other 58 were noise.
+- **The mode switch moved above the map**, into the controls bar — under 60dvh of
+  map it was out of thumb reach.
+- **Defaults: closest-to-me, location on.** `locbtn.click()` fires at boot.
+  Everything degrades to the walking loop if the reader declines.
+- **The location button is now "centre on me"**, and turning location off is its
+  *second* tap once the map is already centred. It needs to stay reachable:
+  `watchPosition` runs high-accuracy GPS for a four-hour event.
+- The "Next stop" distance and the panel's "walk from you" both use
+  `routeMetresFromMe()`, the same graph the line is drawn on, so the number and
+  the line always describe the same walk. **Card distances in the list are still
+  straight-line** — 59 Dijkstras per render would be far too slow, and for
+  ordering by proximity it makes no practical difference.
+
 #### The scroll yank (seventh pass)
 
 Jim: *"the map and list keep popping back to the anchor when you try to go back
@@ -451,6 +488,7 @@ build/
   route_final.py               single-penalty run; PEN=100 produced the shipped order
   geom.py                      osm.json -> geom.json (compress + tier the roads)
   walk.py                      stops + OSM streets -> walk.json (THE DRAWN PATH)
+  graph.py                     OSM streets -> graph.json (runtime routing)
   q.txt                        the Overpass query, to refetch geometry
   qb.txt                       the buildings query — see "Why there are no buildings"
   clean.json                   60 parsed listings
@@ -460,6 +498,7 @@ build/
   geom.json                    compressed street geometry, inlined into the page
   stops.json                   THE DATA — 59 stops, in route order
   walk.json                    the drawn path: one street-following polyline per leg
+  graph.json                   the street graph the PAGE routes on, live
   routemeta.json               loop distance, start, end, outliers, walked distance
 dist/
   map.html                     what gets published

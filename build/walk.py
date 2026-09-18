@@ -84,8 +84,14 @@ def project(p, a, b):
 SHORT = 30.0   # below this, two houses are neighbours: walk straight over, don't route
 
 
-def build_graph(stops):
-    """Pedestrian graph plus one snap point per stop, ready for Dijkstra."""
+def build_graph(stops, add_crossings=True):
+    """Pedestrian graph plus one snap point per stop, ready for Dijkstra.
+
+    add_crossings=False returns the graph without the street-crossing connectors.
+    They are derivable from the node positions alone, so graph.py leaves them out
+    of what ships and the page rebuilds them at load -- they are four fifths of
+    the edges.
+    """
     edges = load_edges()
 
     # Snap every stop to the nearest walkable edge FIRST, so the edges those snap
@@ -127,6 +133,8 @@ def build_graph(stops):
     # Street-crossing connectors (see CROSS). Bucketed into a CROSS-sized grid so
     # only neighbouring cells are compared -- the pairwise scan over every node
     # would be minutes of work for the same answer.
+    if not add_crossings:
+        return adj, snaps, 0
     cell = {}
     for nd in adj:
         key = (int(nd[0] * MLAT // CROSS), int(nd[1] * MLON // CROSS))

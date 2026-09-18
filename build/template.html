@@ -333,6 +333,8 @@ article.card.near .cnum{background:var(--you); color:var(--on-accent)}
 .nowad{font-family:var(--display); font-size:14px; text-transform:uppercase;
   letter-spacing:-.01em; line-height:1.2; min-width:0}
 .nowvn{font-size:11.5px; color:var(--basil); font-weight:600; margin-top:2px}
+.nowwalk{font-family:var(--mono); font-size:11px; font-weight:500; color:var(--you);
+  margin-top:2px; font-variant-numeric:tabular-nums}
 .nowit{margin:8px 0 0; font-size:12.5px; color:var(--ink-2); line-height:1.45;
   max-height:112px; overflow-y:auto}
 .nowit + .nowit{border-top:1px dashed var(--line); padding-top:7px}
@@ -363,7 +365,7 @@ button.nextbtn:focus-visible{outline:2px solid var(--ink); outline-offset:2px}
 
 /* ---------- list mode switch ---------- */
 .modes{display:flex; gap:0; background:var(--sunk); border:1px solid var(--line);
-  border-radius:8px; padding:2px; margin-left:auto}
+  border-radius:8px; padding:2px; flex:none}
 button.mode{
   font-family:var(--mono); font-size:10.5px; font-weight:500; letter-spacing:.04em;
   text-transform:uppercase; color:var(--mute); background:none; border:0;
@@ -518,7 +520,7 @@ footer#foot a{color:var(--mute)}
   #list{overflow:visible; min-height:0}
   .tally{margin-left:0}
   .lhead-row{flex-wrap:wrap; gap:4px}
-  .modes{margin-left:0}
+
   /* The selected-sale panel sticks directly under the sticky map, so the sale
      and its "next stop" stay on screen while the reader scrolls the list.
      The offset has to track #mapcol's height above it -- keep the two in step. */
@@ -601,6 +603,15 @@ footer#foot a{color:var(--mute)}
         </button>
         <button class="reset" id="reset" type="button" hidden>Reset</button>
       </div>
+      <!-- Above the map on purpose: under it, this sat below 60vh of map and was
+           awkward to reach one-handed on a phone (Jim, 2026-09-18). -->
+      <div class="crow">
+        <div class="modes" role="group" aria-label="How to order the list">
+          <button class="mode" id="mnear" type="button" aria-pressed="true">Closest to me</button>
+          <button class="mode" id="mloop" type="button" aria-pressed="false">Walking loop</button>
+        </div>
+        <p class="hint" id="lhint">Finding your location&hellip;</p>
+      </div>
     </div>
   </div>
 
@@ -614,7 +625,7 @@ footer#foot a{color:var(--mute)}
           <button class="mbtn" id="zin" type="button" aria-label="Zoom in">+</button>
           <button class="mbtn" id="zout" type="button" aria-label="Zoom out">&minus;</button>
           <button class="mbtn locb" id="locbtn" type="button" aria-pressed="false"
-                  aria-label="Show my location on the map" title="My location">
+                  aria-label="Centre the map on my location" title="My location">
             <svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor"
                  stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M10 18s5.5-5.2 5.5-9a5.5 5.5 0 10-11 0c0 3.8 5.5 9 5.5 9z"></path>
@@ -649,12 +660,7 @@ footer#foot a{color:var(--mute)}
       <div class="lhead">
         <div class="lhead-row">
           <h2 id="listhead">The sales</h2>
-          <div class="modes" role="group" aria-label="How to order the list">
-            <button class="mode" id="mnear" type="button" aria-pressed="false">Closest to me</button>
-            <button class="mode" id="mloop" type="button" aria-pressed="true">Walking loop</button>
-          </div>
         </div>
-        <p class="hint" id="lhint">Tap a sale to see the walk to the next one.</p>
       </div>
       <div id="nowpanel" role="region" aria-label="Selected sale" hidden></div>
       <div id="list"></div>
@@ -670,6 +676,7 @@ footer#foot a{color:var(--mute)}
 <script id="stopdata" type="application/json">__STOPS__</script>
 <script id="routemeta" type="application/json">__META__</script>
 <script id="walkdata" type="application/json">__WALK__</script>
+<script id="graphdata" type="application/json">__GRAPH__</script>
 <script>
 (function(){
 "use strict";
@@ -679,6 +686,106 @@ var META  = JSON.parse(document.getElementById('routemeta').textContent);
 /* WALK[i] is the path a walker actually takes from stop i to stop i+1, routed
    along real streets at build time by walk.py. The last leg closes the loop. */
 var WALK  = JSON.parse(document.getElementById('walkdata').textContent);
+var GRAPH = JSON.parse(document.getElementById('graphdata').textContent);
+
+/* ---------------- runtime street routing ----------------
+   walk.py routes stop-to-stop at build time, which is all the drawn loop needs.
+   But the reader wants the walk from where they are actually standing, and that
+   isn't known until they open the page -- so the street graph ships and we run
+   Dijkstra here.
+
+   graph.json is delta-coded integers at 1e-5 degrees, and deliberately OMITS the
+   ~26k street-crossing connectors: they are derivable from the node positions
+   alone, so they are rebuilt below rather than shipped (they are four fifths of
+   the edges). See CROSS in walk.py for why crossing anywhere matters. */
+var GN=[], GADJ=null, GCROSS=22;
+(function(){
+  var n=GRAPH.n, la=0, lo=0;
+  for(var i=0;i<n.length;i+=2){ la+=n[i]; lo+=n[i+1]; GN.push([la/1e5, lo/1e5]); }
+})();
+function gm(a,b){
+  var dy=(GN[a][0]-GN[b][0])*111320, dx=(GN[a][1]-GN[b][1])*111320*kx;
+  return Math.sqrt(dy*dy+dx*dx);
+}
+/* Built on first use, not at load: it costs tens of milliseconds and a reader
+   who never turns on location never needs it. */
+function graphReady(){
+  if(GADJ) return;
+  GADJ=[]; for(var i=0;i<GN.length;i++) GADJ.push([]);
+  function link(a,b){ var w=gm(a,b); GADJ[a].push(b,w); GADJ[b].push(a,w); }
+  var e=GRAPH.e, a=0;
+  for(var i=0;i<e.length;i+=2){ a+=e[i]; link(a, a+e[i+1]); }
+  /* the crossing connectors, same rule as the build script: join any two nodes
+     closer than GCROSS that aren't already joined */
+  var cell={}, key;
+  for(var i=0;i<GN.length;i++){
+    key=(Math.floor(GN[i][0]*111320/GCROSS))+','+(Math.floor(GN[i][1]*111320*kx/GCROSS));
+    (cell[key]||(cell[key]=[])).push(i);
+  }
+  for(key in cell){
+    var p=key.split(','), cy=+p[0], cx=+p[1], cand=[];
+    for(var dy=-1;dy<=1;dy++) for(var dx=-1;dx<=1;dx++){
+      var c=cell[(cy+dy)+','+(cx+dx)]; if(c) cand=cand.concat(c);
+    }
+    cell[key].forEach(function(u){
+      var near={}; for(var q=0;q<GADJ[u].length;q+=2) near[GADJ[u][q]]=1;
+      cand.forEach(function(v){ if(v>u && !near[v] && gm(u,v)<=GCROSS) link(u,v); });
+    });
+  }
+}
+/* nearest graph node to a lat/lon -- the reader's snap onto the street network */
+function nearestNode(lat, lon){
+  var best=-1, bd=Infinity;
+  for(var i=0;i<GN.length;i++){
+    var dy=(GN[i][0]-lat)*111320, dx=(GN[i][1]-lon)*111320*kx;
+    var d=dy*dy+dx*dx;
+    if(d<bd){ bd=d; best=i; }
+  }
+  return best;
+}
+/* Dijkstra with a binary heap. ~6k nodes, so a few milliseconds. */
+function gPath(src, dst){
+  graphReady();
+  if(src<0 || dst<0) return null;
+  if(src===dst) return [src];
+  var dist=new Float64Array(GN.length); dist.fill(Infinity);
+  var prev=new Int32Array(GN.length); prev.fill(-1);
+  var done=new Uint8Array(GN.length);
+  var hn=[src], hd=[0]; dist[src]=0;
+  function push(node,d){
+    hn.push(node); hd.push(d);
+    var i=hn.length-1;
+    while(i>0){ var p=(i-1)>>1; if(hd[p]<=hd[i]) break;
+      var t=hn[p];hn[p]=hn[i];hn[i]=t; t=hd[p];hd[p]=hd[i];hd[i]=t; i=p; }
+  }
+  function pop(){
+    var top=hn[0], td=hd[0], last=hn.length-1;
+    hn[0]=hn[last]; hd[0]=hd[last]; hn.pop(); hd.pop();
+    var i=0, n=hn.length;
+    for(;;){ var l=2*i+1, r=l+1, m=i;
+      if(l<n && hd[l]<hd[m]) m=l;
+      if(r<n && hd[r]<hd[m]) m=r;
+      if(m===i) break;
+      var t=hn[m];hn[m]=hn[i];hn[i]=t; t=hd[m];hd[m]=hd[i];hd[i]=t; i=m; }
+    return [top,td];
+  }
+  while(hn.length){
+    var it=pop(), u=it[0];
+    if(done[u]) continue;
+    done[u]=1;
+    if(u===dst) break;
+    var ad=GADJ[u];
+    for(var j=0;j<ad.length;j+=2){
+      var v=ad[j], nd=it[1]+ad[j+1];
+      if(nd<dist[v]){ dist[v]=nd; prev[v]=u; push(v,nd); }
+    }
+  }
+  if(!done[dst]) return null;
+  var out=[dst], u2=dst;
+  while(u2!==src){ u2=prev[u2]; out.push(u2); }
+  out.reverse();
+  return out;
+}
 
 var G_CHURCH='<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.9" '+
   'stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v3"/><path d="M8.5 3.4h3"/>'+
@@ -878,19 +985,66 @@ function drawMap(){
 }
 /* the bold leg is whichever sale is selected -> the next one on the loop */
 var activeLeg=null, legPath=null, legGroup=null;
-function destStop(){ return activeLeg===null ? null : (activeLeg+1)%N; }
+var legPts=null, legDist=0, legFromMe=false;
+function destStop(){ return legFromMe ? activeLeg : (activeLeg===null ? null : (activeLeg+1)%N); }
+
+/* The bold path. When we know where the reader is it runs from THEM to the sale
+   they are looking at, routed over the street graph in this page -- that is the
+   question someone standing on a sidewalk is asking. Without a position it falls
+   back to the precomputed loop leg, sale to next sale. */
+function buildLeg(i){
+  legPts=null; legDist=0; legFromMe=false;
+  if(i===null) return;
+  if(mePos){
+    var a=nearestNode(mePos[0], mePos[1]), b=GRAPH.s[i];
+    var path=gPath(a,b);
+    if(path){
+      var pts=[[mePos[0],mePos[1]]];
+      path.forEach(function(n){ pts.push(GN[n]); });
+      pts.push([STOPS[i].lat, STOPS[i].lon]);
+      legPts=pts; legFromMe=true;
+      for(var j=0;j<pts.length-1;j++)
+        legDist+=metres(pts[j][0],pts[j][1],pts[j+1][0],pts[j+1][1]);
+      return;
+    }
+    /* no street path (shouldn't happen in this neighbourhood) -- fall through */
+  }
+  legPts=WALK[i]; legDist=legMetres(i);
+}
 function drawLeg(){
   if(!legPath) return;
-  legPath.setAttribute('d', activeLeg===null ? '' : dOf(WALK[activeLeg]));
-  arrowEls.forEach(function(o,i){ o.el.hidden = (i!==activeLeg); });
+  legPath.setAttribute('d', legPts ? dOf(legPts) : '');
+  placeArrow();
   var d=destStop();
   pins.forEach(function(p,i){ p.classList.toggle('dest', i===d); });
   updateClusters();
 }
+/* halfway along the path as walked, not halfway between its ends -- a path that
+   turns corners has a straight-line midpoint that can sit off it entirely */
+function placeArrow(){
+  if(!legArrow) return;
+  if(!legPts || legPts.length<2){ legArrow.hidden=true; return; }
+  var q=legPts.map(function(p){ return px(p[0],p[1]); });
+  var seg=[], tot=0, j;
+  for(j=0;j<q.length-1;j++){
+    var L=Math.hypot(q[j+1][0]-q[j][0], q[j+1][1]-q[j][1]);
+    seg.push(L); tot+=L;
+  }
+  if(!tot){ legArrow.hidden=true; return; }
+  var want=tot/2, run=0, m=0;
+  while(m<seg.length-1 && run+seg[m]<want){ run+=seg[m]; m++; }
+  var t=seg[m] ? (want-run)/seg[m] : 0;
+  var a=q[m], b=q[m+1]||q[m];
+  legArrowAng=Math.atan2(b[1]-a[1], b[0]-a[0])*180/Math.PI;
+  legArrow.hidden=false;
+  legArrow.style.left=(a[0]+(b[0]-a[0])*t).toFixed(1)+'px';
+  legArrow.style.top =(a[1]+(b[1]-a[1])*t).toFixed(1)+'px';
+}
 function showLeg(i){
-  activeLeg = (i===null ? null : i);
+  activeLeg=(i===null?null:i);
+  buildLeg(activeLeg);
   drawLeg();
-  if(i!==null) fitLeg(i);
+  if(i!==null) fitLeg();
 }
 /* On by default. It used to default off, back when the line was crow-flies and
    mostly told you the order you were already reading in the list. Now that it
@@ -913,7 +1067,11 @@ function num(s){ return s.i + 1; }
 /* 'loop' = the suggested walking order. 'near' = closest to the reader first,
    which is what someone with an hour actually wants. 'near' needs a position,
    so it falls back to loop order until there is one. */
-var listMode = 'loop';
+/* Closest-first by default: most readers have an hour, not four, and what they
+   want is what they can reach -- not stop 1 of a 59-stop loop. It needs a
+   position, so location is requested on load too (see the boot section), and it
+   falls back to loop order until a fix arrives or if one never does. */
+var listMode = 'near';
 function ordered(){
   if(listMode==='near' && mePos){
     return STOPS.slice().sort(function(a,b){
@@ -925,7 +1083,7 @@ function ordered(){
 
 var pins=[], lms=[], cards=[], sel=null, meEl=null;
 var nowEl=document.getElementById('nowpanel');
-var clusterBadges=[], badgeInfo=[], stopPos=[], arrowEls=[];
+var clusterBadges=[], badgeInfo=[], stopPos=[], legArrow=null, legArrowAng=0;
 var CLUSTER_PX = 32;   /* screen-px: pin centers closer than this collapse into one badge */
 
 function buildPins(){
@@ -971,16 +1129,14 @@ function buildPins(){
     });
     layer.appendChild(b); return b;
   });
-  /* one chevron per route segment, so the walking direction still reads
-     where the dashed loop line crosses itself in the dense blocks */
-  arrowEls = STOPS.map(function(){
-    var d=document.createElement('div');
-    d.className='rtA';
-    d.innerHTML='<svg viewBox="0 0 10 10"><path d="M2 1 L7 5 L2 9" fill="none" '+
-      'stroke="var(--brick)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-    routeArrowsEl.appendChild(d);
-    return {el:d, ang:0};
-  });
+  /* One chevron, on the path currently drawn bold. There used to be 59, one per
+     loop leg; with the loop faded to background context they were just noise. */
+  legArrow=document.createElement('div');
+  legArrow.className='rtA';
+  legArrow.hidden=true;
+  legArrow.innerHTML='<svg viewBox="0 0 10 10"><path d="M2 1 L7 5 L2 9" fill="none" '+
+    'stroke="var(--brick)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  routeArrowsEl.appendChild(legArrow);
   syncNumbers();
 }
 function syncNumbers(){
@@ -1003,25 +1159,7 @@ function placePins(){
     lms[i].style.left=q[0].toFixed(1)+'px';
     lms[i].style.top =q[1].toFixed(1)+'px';
   });
-  /* Put each leg's chevron halfway along the path as walked, not halfway
-     between the two houses — now that a leg turns corners, the straight-line
-     midpoint can sit off the route entirely, on the wrong side of a block. */
-  STOPS.forEach(function(s,i){
-    var leg=WALK[i].map(function(p){ return px(p[0],p[1]); });
-    var seg=[], tot=0, j;
-    for(j=0;j<leg.length-1;j++){
-      var L=Math.hypot(leg[j+1][0]-leg[j][0], leg[j+1][1]-leg[j][1]);
-      seg.push(L); tot+=L;
-    }
-    var want=tot/2, run=0, k=0;
-    while(k<seg.length-1 && run+seg[k]<want){ run+=seg[k]; k++; }
-    var t = seg[k] ? (want-run)/seg[k] : 0;
-    var a=leg[k], b=leg[k+1]||leg[k];
-    var o=arrowEls[i];
-    o.ang=Math.atan2(b[1]-a[1], b[0]-a[0])*180/Math.PI;
-    o.el.style.left=(a[0]+(b[0]-a[0])*t).toFixed(1)+'px';
-    o.el.style.top =(a[1]+(b[1]-a[1])*t).toFixed(1)+'px';
-  });
+  placeArrow();
   placeMe();
   lastClusterKey=null;   /* positions moved; re-cluster on the next apply() */
 }
@@ -1073,7 +1211,7 @@ function apply(){
   var f = (pk/k).toFixed(4);
   pins.forEach(function(p){ p.style.transform='scale('+f+')'; });
   clusterBadges.forEach(function(b){ b.style.transform='scale('+f+')'; });
-  arrowEls.forEach(function(o){ o.el.style.transform='rotate('+o.ang.toFixed(1)+'deg) scale('+f+')'; });
+  if(legArrow) legArrow.style.transform='rotate('+legArrowAng.toFixed(1)+'deg) scale('+f+')';
   var lf=(1/k).toFixed(4);
   if(mePos){ placeMe(); meEl.lastChild.style.transform='scale('+lf+')'; }
   lms.forEach(function(d,i){
@@ -1268,6 +1406,14 @@ var locbtn=document.getElementById('locbtn'), locmsg=document.getElementById('lo
 var locWatch=null, locOn=false, mePos=null, meAccM=0, nearI=null;
 var locTimer=null, locNote='';   /* locNote: why location isn't showing, if it isn't */
 var renderedAt=null, RENDER_M=12;   /* where the closest-first list was last built */
+var centreNext=false;               /* the reader asked to be centred on */
+function centreOnMe(){
+  if(!mePos) return;
+  var q=px(mePos[0],mePos[1]);
+  k=Math.max(k, 3.2);
+  tx=W/2-q[0]*k; ty=H/2-q[1]*k;
+  clamp(); apply();
+}
 
 function locSay(t){
   locmsg.textContent=t||''; locmsg.hidden=!t;
@@ -1316,9 +1462,15 @@ function placeMe(){
 }
 function onPos(p){
   locbtn.removeAttribute('data-state');
+  var first = !mePos;
   mePos=[p.coords.latitude, p.coords.longitude];
   meAccM=p.coords.accuracy||0;
   placeMe(); apply();
+  /* Centre on the reader when their position first arrives, and again whenever
+     they ask for it with the location button. Only then: recentring on every fix
+     would fight someone who has deliberately panned up the street, which is the
+     whole reason this map doesn't follow you around. */
+  if(first || centreNext){ centreNext=false; centreOnMe(); }
   if(mePos[0]<V.s || mePos[0]>V.n || mePos[1]<V.w || mePos[1]>V.e){
     nearI=null; syncNear();
     locSay('You’re outside the map area — nothing to show yet.');
@@ -1336,6 +1488,11 @@ function onPos(p){
       metres(renderedAt[0],renderedAt[1],mePos[0],mePos[1]) > RENDER_M)){
     renderedAt=[mePos[0],mePos[1]];
     syncModeUI(); render();
+  }
+  /* the bold path starts at the reader, so it has to be rebuilt as they move */
+  if(activeLeg!==null && (first || legFromMe===false ||
+      metres(legPts[0][0],legPts[0][1],mePos[0],mePos[1]) > RENDER_M)){
+    buildLeg(activeLeg); drawLeg();
   }
   /* kept short deliberately: at 375px anything longer wraps to a second line
      and eats the top of the map */
@@ -1389,7 +1546,18 @@ var EMBEDDED_MSG='Location is blocked in this embedded preview. '+
   'Open the map in its own browser tab and it will work.';
 
 locbtn.onclick=function(){
-  if(locOn){ stopLoc(); locSay(''); locNote=''; syncModeUI(); return; }
+  /* Tapping this mostly means "show me where I am", so centring is the first
+     action. But watchPosition runs high-accuracy GPS for a four-hour event, so
+     there has to be a way to stop it: once the map is already centred on the
+     reader, a second tap turns location off. */
+  if(locOn && mePos){
+    var q=px(mePos[0],mePos[1]);
+    var centred = Math.abs(q[0]*k+tx-W/2)<6 && Math.abs(q[1]*k+ty-H/2)<6;
+    if(centred){ stopLoc(); locSay(''); locNote=''; syncModeUI(); render(); }
+    else centreOnMe();
+    return;
+  }
+  if(locOn){ centreNext=true; return; }
   if(!navigator.geolocation){ locFailed('This browser can’t share a location.'); return; }
   if(geoBlocked()){ locFailed(EMBEDDED_MSG); return; }
   locOn=true;
@@ -1464,6 +1632,8 @@ function goLink(s){
 function nowHTML(s){
   var h='<div class="nowhd"><span class="nownum">'+num(s)+'</span>'+
     '<div style="min-width:0"><div class="nowad">'+esc(s.addr)+'</div>'+
+    (legFromMe && activeLeg===s.i
+      ? '<div class="nowwalk">'+distLabel(legDist)+' walk from you</div>' : '')+
     (s.venue?'<div class="nowvn">'+esc(s.venue)+'</div>':'')+'</div>'+
     goLink(s)+
     '<button class="nowx" type="button" aria-label="Clear selection">&times;</button></div>';
@@ -1480,7 +1650,8 @@ function nowHTML(s){
      '<span class="nlab">Next stop</span>'+
      '<span class="nnum">'+num(nx)+'</span>'+
      '<span class="nad">'+esc(nx.addr)+'</span>'+
-     '<span class="ndist">'+legLabel(s.i)+'</span></button>';
+     '<span class="ndist">'+(mePos ? distLabel(routeMetresFromMe(nx.i)||0)
+                                   : legLabel(s.i))+'</span></button>';
   return h;
 }
 /* The only overlay left on the map is the cluster picker, which is small and
@@ -1539,6 +1710,7 @@ function select(i, fromMap){
   /* the bold leg follows the selection, but does NOT move the map here --
      callers that need the leg framed call showLeg() instead */
   activeLeg = i;
+  buildLeg(activeLeg);
   drawLeg();
   updateClusters();   /* the selected stop is always shown standalone, never clustered */
   pop.hidden=true;   /* the picker, if one was open */
@@ -1588,11 +1760,26 @@ function distLabel(d){
   return d<300 ? Math.round(d*3.28084)+' ft' : (d/1609.344).toFixed(1)+' mi';
 }
 function legLabel(i){ return distLabel(legMetres(i)); }
+/* Walking distance from the reader to a sale, over the same street graph the
+   bold path is drawn on -- so the number on the button and the line on the map
+   are describing the same walk. */
+function routeMetresFromMe(i){
+  if(!mePos) return null;
+  var path=gPath(nearestNode(mePos[0],mePos[1]), GRAPH.s[i]);
+  if(!path) return null;
+  var pts=[[mePos[0],mePos[1]]];
+  path.forEach(function(n){ pts.push(GN[n]); });
+  pts.push([STOPS[i].lat, STOPS[i].lon]);
+  var d=0;
+  for(var j=0;j<pts.length-1;j++) d+=metres(pts[j][0],pts[j][1],pts[j+1][0],pts[j+1][1]);
+  return d;
+}
 
 /* Frame one leg: both ends on screen with room to breathe, so "where do I go
    next" is answered without the reader hunting for the other end of the line. */
-function fitLeg(i){
-  var pts=WALK[i].map(function(p){ return px(p[0],p[1]); });
+function fitLeg(){
+  if(!legPts) return;
+  var pts=legPts.map(function(p){ return px(p[0],p[1]); });
   var xs=pts.map(function(q){return q[0];}), ys=pts.map(function(q){return q[1];});
   var cx=(Math.max.apply(null,xs)+Math.min.apply(null,xs))/2;
   var cy=(Math.max.apply(null,ys)+Math.min.apply(null,ys))/2;
@@ -1763,13 +1950,18 @@ function relayout(){
 buildPins();
 document.getElementById('footnote').innerHTML=footnoteHTML();
 syncModeUI(); relayout(); render();
+/* Location on by default. Deliberate: this page exists to be used while walking
+   around the neighbourhood, and the first thing it should answer is "what's near
+   me". Safari shows its own permission prompt, and everything degrades to the
+   walking loop if the reader says no. */
+locbtn.click();
 window.addEventListener('resize', function(){
   relayout(); render();
   /* measure() recomputes the projection scale, but tx/ty/k are still in the old
      one, so the view slides off whatever the reader was looking at -- most
      visible on a phone rotating or the browser chrome collapsing. Re-frame the
      leg they were sent to, or fall back to fitting everything. */
-  if(activeLeg!==null) fitLeg(activeLeg); else fit();
+  if(activeLeg!==null) fitLeg(); else fit();
 });
 document.addEventListener('keydown', function(e){ if(e.key==='Escape') select(null); });
 })();

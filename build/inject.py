@@ -1,8 +1,8 @@
 """Inline the data into template.html and write dist/map.html (+ a local preview).
 
-template.html carries four placeholders -- __GEOM__, __STOPS__, __META__,
-__WALK__ -- which are replaced with the contents of geom.json, stops.json,
-routemeta.json and walk.json. The page ships as one self-contained file because
+template.html carries five placeholders -- __GEOM__, __STOPS__, __META__,
+__WALK__, __GRAPH__ -- replaced with geom.json, stops.json, routemeta.json,
+walk.json and graph.json. The page ships as one self-contained file because
 the Artifact CSP blocks every external fetch (see HANDOFF.md).
 """
 import json, io, os, shutil
@@ -22,9 +22,10 @@ tpl = read('template.html')
 out = (tpl.replace('__GEOM__',  read('geom.json').strip())
           .replace('__STOPS__', compact('stops.json'))
           .replace('__META__',  compact('routemeta.json'))
-          .replace('__WALK__',  compact('walk.json')))
+          .replace('__WALK__',  compact('walk.json'))
+          .replace('__GRAPH__', compact('graph.json')))
 
-for ph in ('__GEOM__', '__STOPS__', '__META__', '__WALK__'):
+for ph in ('__GEOM__', '__STOPS__', '__META__', '__WALK__', '__GRAPH__'):
     if ph in out:
         raise SystemExit('ERROR: placeholder %s was not substituted' % ph)
 
