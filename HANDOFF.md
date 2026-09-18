@@ -1,13 +1,22 @@
 # The Hill Yard Sale Map — handoff
 
-**Live artifact:** https://claude.ai/artifact/XTPHamraY1feVFwMaanuQp (Version 5)
+**Live artifact:** https://claude.ai/artifact/XTPHamraY1feVFwMaanuQp (Version 9)
+**Live on GitHub Pages:** https://jimbarnthouse-psf.github.io/hill-yard-sale-map/
+**Repo:** https://github.com/jimbarnthouse-psf/hill-yard-sale-map (public)
 **Event:** Saturday, September 26, 2026, 8am–noon. The Hill, St. Louis 63110.
 **Handed off:** September 17, 2026 — 9 days out.
 **Owner:** Jim Barnthouse (jim.barnthouse@mac.com)
 
 An interactive map of 59 neighborhood yard sales, numbered as a walking loop.
-Built and published as a Claude Artifact. Still **private** — Jim shares it from
-the artifact page's own share menu when he's ready.
+Built and published two ways:
+
+1. **Claude Artifact** — still **private**; Jim shares it from the artifact
+   page's own share menu when he's ready.
+2. **GitHub Pages** — public, at the URL above, so the link doesn't show as
+   claude.ai. `index.html` at the repo root is a copy of `dist/map.html`;
+   `./build.sh` refreshes it automatically on every rebuild (see below).
+   `git push` is what ships an update here — GitHub Pages rebuilds itself
+   from `main` a minute or so after each push, no separate deploy step.
 
 ---
 
@@ -96,6 +105,18 @@ URL, and **read it first** or the publish is refused:
 Publishing **without** `url` creates a second, separate artifact instead of updating
 this one. Also: **omit `favicon` and `icon` on republish** (it keeps 🏷️🗺️ / "map") and
 keep the `<title>` as "The Hill Yard Sale Map" — viewers recognize the artifact by these.
+
+To ship the same update to GitHub Pages, `./build.sh` already refreshed
+`index.html` — just commit and push:
+
+```bash
+git add -A && git commit -m "describe the change" && git push
+```
+
+GitHub Pages rebuilds from `main` automatically a minute or so after the push;
+no separate deploy step. `gh` is installed at `~/.local/bin/gh` and authenticated
+as `jimbarnthouse-psf` (device-flow login, done 2026-09-18) — a fresh session may
+need `export PATH="$HOME/.local/bin:$PATH"` if it isn't already on `PATH`.
 
 ---
 
