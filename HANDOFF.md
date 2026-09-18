@@ -128,6 +128,29 @@ What changed:
    leg. Burying the next-stop line behind a toggle is exactly what made the old
    route line invisible to everyone.
 
+#### The scroll yank (seventh pass)
+
+Jim: *"the map and list keep popping back to the anchor when you try to go back
+to the list or the menu/search at the top."*
+
+`revealPanel()` scrolls the page so the panel sits under the sticky map. It ran
+on every `select()` — but `render()` re-applies the current selection at its end,
+and in closest-first mode **every GPS fix calls `render()`**. So roughly once a
+second the page dragged itself back down and the reader could never reach the
+search or the filter chips above the map.
+
+- `revealPanel()` now runs only when the selection actually **changed**. It is a
+  response to the reader picking a sale, not to a redraw.
+- Closest-first no longer rebuilds the list on every fix. GPS reports about once
+  a second and jitters by metres while standing still; rebuilding 59 cards under
+  someone mid-scroll moves the ground beneath them. It rebuilds when the reader
+  has walked `RENDER_M` (12 m) or when the nearest sale changes, tracked in
+  `renderedAt` (cleared by `setMode()` and `stopLoc()`).
+
+**The general rule here:** anything that scrolls the window or moves the map must
+fire from a user action, never from a re-render or a position update. `fitLeg()`
+is the same — it is called by `showLeg()`, never by `select()`.
+
 #### Real-iPhone round (sixth pass)
 
 **Geolocation confirmed working on iPhone Safari via GitHub Pages**, which also

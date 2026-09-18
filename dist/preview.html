@@ -1273,6 +1273,7 @@ rtbtn.onclick=function(){
 var locbtn=document.getElementById('locbtn'), locmsg=document.getElementById('locmsg');
 var locWatch=null, locOn=false, mePos=null, meAccM=0, nearI=null;
 var locTimer=null, locNote='';   /* locNote: why location isn't showing, if it isn't */
+var renderedAt=null, RENDER_M=12;   /* where the closest-first list was last built */
 
 function locSay(t){
   locmsg.textContent=t||''; locmsg.hidden=!t;
@@ -1330,9 +1331,18 @@ function onPos(p){
     return;
   }
   if(locNote){ locNote=''; syncModeUI(); }
-  var n=nearestStop(); nearI=n[0]; syncNear();
-  /* a new fix reorders closest-first and restates every card's distance */
-  if(listMode==='near'){ syncModeUI(); render(); }
+  var n=nearestStop(), prevNear=nearI; nearI=n[0]; syncNear();
+  /* A new fix reorders closest-first and restates every card's distance -- but
+     only when it is worth it. GPS reports a position roughly every second and
+     jitters by metres while standing still; rebuilding 59 cards under a reader
+     who is mid-scroll moves the ground under them. Rebuild when they have
+     actually walked RENDER_M, or when the nearest sale changes. */
+  if(listMode==='near' &&
+     (prevNear!==nearI || renderedAt===null ||
+      metres(renderedAt[0],renderedAt[1],mePos[0],mePos[1]) > RENDER_M)){
+    renderedAt=[mePos[0],mePos[1]];
+    syncModeUI(); render();
+  }
   /* kept short deliberately: at 375px anything longer wraps to a second line
      and eats the top of the map */
   var d=n[1], ft=Math.round(d*3.28084);
@@ -1358,7 +1368,7 @@ function stopLoc(){
   if(locWatch!==null && navigator.geolocation){
     try{ navigator.geolocation.clearWatch(locWatch); }catch(e){}
   }
-  locWatch=null; locOn=false; mePos=null; nearI=null;
+  locWatch=null; locOn=false; mePos=null; nearI=null; renderedAt=null;
   /* closest-first can't mean anything now; fall back rather than freezing a
      stale order the reader can no longer trust */
   if(listMode==='near'){ listMode='loop'; syncModeUI(); render(); }
@@ -1434,6 +1444,7 @@ function syncModeUI(){
 }
 function setMode(mo){
   listMode=mo;
+  renderedAt=null;
   syncModeUI(); render(); scrollListToTop();
   /* closest-first is meaningless without a position, so asking for the mode is
      also asking for location -- rather than a dead button and no explanation */
@@ -1553,8 +1564,13 @@ function select(i, fromMap){
       listEl.scrollTop += (cr.top-lr.top) - lr.height/2 + cr.height/2;
   }
   /* On a phone the page itself scrolls and the panel sits below the sticky map,
-     so a selection made while scrolled down the list would land off-screen. */
-  if(getComputedStyle(listEl).overflowY!=='auto') revealPanel();
+     so a selection made while scrolled down the list would land off-screen.
+     Only when the selection actually MOVED: render() re-applies the current
+     selection at the end, and in closest-first mode every GPS fix re-renders, so
+     scrolling here unconditionally dragged the reader back down to the panel
+     about once a second -- they could never reach the search or filters above
+     the map (Jim, 2026-09-18). */
+  if(changed && getComputedStyle(listEl).overflowY!=='auto') revealPanel();
 }
 /* Put the panel just below the sticky map. Measured, and instant rather than
    smooth -- see scrollListToTop() for why smooth scrolling isn't trusted here. */
