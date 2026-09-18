@@ -321,6 +321,15 @@ article.card.near .cnum{background:var(--you); color:var(--on-accent)}
 }
 #locmsg[hidden]{display:none!important}
 
+/* ---------- expand the map ----------
+   A phone-only control: desktop already gives the map its own column. One tap
+   swaps to a full-screen map; the selected sale keeps its card, pinned to the
+   bottom edge over the map, so tapping a pin still tells you something. */
+#expbtn{display:none}
+#expbtn .exp-in{display:none}
+#app.mapfull #expbtn .exp-out{display:none}
+#app.mapfull #expbtn .exp-in{display:block}
+
 /* ---------- the selected sale ----------
    This used to be a popup floating over the map. On a phone the card covered
    most of the map it was describing -- the thing the reader needed to look at.
@@ -426,9 +435,9 @@ button.pick .pad{font-family:var(--mono); font-weight:500; font-size:12.5px; let
 .lhead-row{display:flex; align-items:baseline; gap:8px}
 .lhead h2{font-family:var(--display); font-size:11.5px; text-transform:uppercase;
   letter-spacing:.075em; margin:0; color:var(--mute)}
-.lhead .hint{margin:0; font-size:11.5px; color:var(--mute); line-height:1.4}
+.hint{margin:0; font-size:11.5px; color:var(--mute); line-height:1.4; min-width:0}
 .hint[hidden]{display:none!important}
-.lhead .hint.warn{color:var(--brick); font-weight:600}
+.hint.warn{color:var(--brick); font-weight:600}
 #list{flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain;
   display:flex; flex-direction:column; gap:7px; padding:1px 2px 2px}
 .stgroup{font-family:var(--display); font-size:11px; text-transform:uppercase;
@@ -527,6 +536,29 @@ footer#foot a{color:var(--mute)}
   #list{overflow:visible; min-height:0}
   .tally{margin-left:0}
   .lhead-row{flex-wrap:wrap; gap:4px}
+
+  #expbtn{display:grid}
+  /* Full-screen map. Everything else is hidden rather than repositioned, so the
+     page simply has nothing to scroll -- no fixed positioning, no second scroll
+     container, none of the sticky-offset coupling that the normal phone layout
+     needs. The safe-area insets move to the map controls so they clear the notch
+     and the home indicator. */
+  #app.mapfull > header#top,
+  #app.mapfull > #controls,
+  #app.mapfull > footer#foot{display:none}
+  #app.mapfull #split{padding:0; gap:0}
+  #app.mapfull #mapcol{height:100vh; height:100dvh; padding-bottom:0; top:0}
+  #app.mapfull #mapshell{border-radius:0; border:0}
+  #app.mapfull .mapui.tr{top:calc(9px + env(safe-area-inset-top, 0px))}
+  #app.mapfull .mapui.bl{bottom:calc(9px + env(safe-area-inset-bottom, 0px))}
+  #app.mapfull #locmsg{top:calc(9px + env(safe-area-inset-top, 0px))}
+  /* the sale card rides the bottom edge, over the map */
+  #app.mapfull #listcol{
+    position:fixed; left:0; right:0; bottom:0; z-index:110; max-width:none;
+    padding:0 10px calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+  #app.mapfull .lhead, #app.mapfull #list{display:none}
+  #app.mapfull #nowpanel{position:static; margin:0}
 
   /* The selected-sale panel sticks directly under the sticky map, so the sale
      and its "next stop" stay on screen while the reader scrolls the list.
@@ -677,6 +709,14 @@ footer#foot a{color:var(--mute)}
               <circle cx="5" cy="19" r="1.6" fill="currentColor" stroke="none"></circle>
               <circle cx="17" cy="6" r="1.6" fill="currentColor" stroke="none"></circle>
               <path d="M13 6h4"></path>
+            </svg>
+          </button>
+          <button class="mbtn" id="expbtn" type="button" aria-pressed="false"
+                  aria-label="Expand the map to full screen" title="Expand map">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+                 stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path class="exp-out" d="M8 9l4-4 4 4M8 15l4 4 4-4"></path>
+              <path class="exp-in" d="M8 5l4 4 4-4M8 19l4-4 4 4"></path>
             </svg>
           </button>
           <button class="mbtn" id="zfit" type="button" aria-label="Fit all sales" title="Fit all">
@@ -1421,6 +1461,21 @@ shell.addEventListener('pointercancel', up);
 document.getElementById('zin').onclick  = function(){ zoomAt(W/2,H/2,1.5); };
 document.getElementById('zout').onclick = function(){ zoomAt(W/2,H/2,1/1.5); };
 document.getElementById('zfit').onclick = function(){ fit(); select(null); };
+
+/* Expand/collapse the map. A class change doesn't fire a resize event, so the
+   projection has to be re-measured by hand -- otherwise the map keeps drawing at
+   the old size in the new box. */
+var appEl=document.getElementById('app'), expbtn=document.getElementById('expbtn');
+expbtn.onclick=function(){
+  var on=!appEl.classList.contains('mapfull');
+  appEl.classList.toggle('mapfull', on);
+  expbtn.setAttribute('aria-pressed', on?'true':'false');
+  expbtn.setAttribute('aria-label', on?'Shrink the map':'Expand the map to full screen');
+  expbtn.setAttribute('title', on?'Shrink map':'Expand map');
+  if(on) window.scrollTo(0,0);   /* the page has nothing to scroll now */
+  relayout();
+  if(activeLeg!==null) fitLeg(); else fit();
+};
 var rtbtn=document.getElementById('rtbtn');
 rtbtn.onclick=function(){
   routeOn=!routeOn;
@@ -1548,7 +1603,9 @@ function onLocErr(e){
 function locFailed(msg){
   stopLoc();
   locNote=msg;
-  locSay(msg);
+  /* The hint sits right next to the button the reader pressed, so it says this.
+     locmsg would repeat the same sentence a few pixels below it. */
+  locSay('');
   syncModeUI();
 }
 function stopLoc(){

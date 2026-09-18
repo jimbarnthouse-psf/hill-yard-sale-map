@@ -130,6 +130,33 @@ What changed:
    leg. Burying the next-stop line behind a toggle is exactly what made the old
    route line invisible to everyone.
 
+#### Full-screen map, landscape, trimmed header (ninth pass)
+
+- **`#expbtn` expands the map to full screen** on phones, and back. Everything
+  else is *hidden* rather than repositioned, so the page has nothing to scroll —
+  no fixed positioning, no second scroll container, none of the sticky-offset
+  coupling the normal phone layout needs. The selected sale's card is the one
+  exception: it rides the bottom edge over the map, so tapping a pin still tells
+  you something. Safe-area insets move onto the map controls so they clear the
+  notch and the home indicator.
+  **A class change does not fire `resize`**, so the handler calls `relayout()`
+  and re-frames by hand — otherwise the map keeps drawing at the old size.
+  Jim chose this over an Apple-Maps-style draggable sheet: same benefit, a
+  fraction of the risk, six days out.
+- **Landscape on a phone shows "turn your phone upright"** instead of a broken
+  screen. A landscape iPhone is ~852px wide — just under the 860px breakpoint —
+  so it got the vertical layout with a 68dvh map in a ~390px-tall viewport. The
+  media query targets that combination (phone-layout width, no height) rather
+  than `pointer:coarse`, which cannot be tested in a desktop browser and would
+  silently never fire if a device disagreed.
+- **The standing list hint is gone.** "Nearest first" said nothing the button
+  labelled "Closest to me" does not. The element survives for failures only.
+  Two regressions came with moving it out of `.lhead` and were fixed: the
+  `.lhead .hint` selector stopped matching so it rendered at body size, and the
+  failure text appeared twice, once in the hint and once in `#locmsg` a few
+  pixels below. **Failures now live in the hint only**; `#locmsg` keeps the
+  positive "Nearest: …" status.
+
 #### Routing from the reader (eighth pass)
 
 Jim: default to closest-to-me, location on by default, centre on me when I ask,
