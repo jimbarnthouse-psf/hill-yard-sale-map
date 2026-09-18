@@ -5,12 +5,22 @@ Large PEN forces one street at a time (legible, but longer). The knee in
 between is a route a person can actually follow without losing much distance.
 """
 import json, math, sys
+import walk
 
 S = json.load(open('stops.json'))
 CL = math.cos(math.radians(38.615))
 def xy(s): return (s['lon']*111320*CL, s['lat']*111320)
 P = [xy(s) for s in S]; n = len(P)
-D = [[math.hypot(P[i][0]-P[j][0], P[i][1]-P[j][1]) for j in range(n)] for i in range(n)]
+
+# Straight-line distance, kept only for the outlier test below.
+DS = [[math.hypot(P[i][0]-P[j][0], P[i][1]-P[j][1]) for j in range(n)] for i in range(n)]
+
+# The distance the solver actually minimises: metres walked along real streets.
+# It used to be DS, which on a street grid systematically misjudges which stop is
+# really "next" -- two houses back to back across a block are 40 m apart and a
+# 300 m walk, and the solver would happily pair them.
+print("routing on real street distance (one Dijkstra per stop)...")
+D = walk.street_matrix(S)
 ST = [s['street'] for s in S]
 
 def dist(o): return sum(D[o[i]][o[(i+1) % len(o)]] for i in range(len(o)))
@@ -48,9 +58,14 @@ def improve(o, cost):
                 i += 1
     return o
 
+# Outliers stay defined by straight-line distance (DS), not street distance.
+# Jim's rule -- don't start or end on a sale that's way off on its own -- is a
+# geographic statement, and the 400 m threshold was tuned against DS. Switching
+# it to street distance would inflate every isolation score and quietly reclassify
+# stops he already signed off on.
 iso = {}
 for i in range(n):
-    ds = sorted(D[i][j] for j in range(n) if j != i); iso[i] = sum(ds[:3])/3
+    ds = sorted(DS[i][j] for j in range(n) if j != i); iso[i] = sum(ds[:3])/3
 OUT = {i for i in range(n) if iso[i] > 400}
 
 def solve(pen, starts=14):

@@ -81,13 +81,16 @@ def project(p, a, b):
     return q, math.hypot(py - qy, px - qx), t
 
 
-def main():
-    edges = load_edges()
-    stops = json.load(io.open(os.path.join(HERE, 'stops.json'), encoding='utf-8'))
+SHORT = 30.0   # below this, two houses are neighbours: walk straight over, don't route
 
-    # Snap every stop to the nearest walkable edge first, so the edges those
-    # snap points land on can be split before the graph is built. Splitting
-    # after the fact would leave the snap point stranded off the network.
+
+def build_graph(stops):
+    """Pedestrian graph plus one snap point per stop, ready for Dijkstra."""
+    edges = load_edges()
+
+    # Snap every stop to the nearest walkable edge FIRST, so the edges those snap
+    # points land on can be split before the graph is built. Splitting after the
+    # fact would leave the snap point stranded off the network.
     snaps = []
     for s in stops:
         p = (s['lat'], s['lon'])
@@ -98,9 +101,6 @@ def main():
                 best = (q, dist, ei, t)
         snaps.append(best)
 
-    # Build the adjacency, splitting each edge at any snap points that landed on
-    # it (an edge can carry more than one -- next-door neighbours snap to the
-    # same stretch of street).
     splits = {}
     for i, (q, dist, ei, t) in enumerate(snaps):
         splits.setdefault(ei, []).append((t, q))
@@ -116,6 +116,8 @@ def main():
 
     for ei, (a, b) in enumerate(edges):
         if ei in splits:
+            # an edge can carry more than one snap point -- next-door neighbours
+            # land on the same stretch of street
             chain = [(0.0, a)] + sorted(splits[ei]) + [(1.0, b)]
             for i in range(len(chain) - 1):
                 link(chain[i][1], chain[i + 1][1])
@@ -126,9 +128,9 @@ def main():
     # only neighbouring cells are compared -- the pairwise scan over every node
     # would be minutes of work for the same answer.
     cell = {}
-    for n in adj:
-        key = (int(n[0] * MLAT // CROSS), int(n[1] * MLON // CROSS))
-        cell.setdefault(key, []).append(n)
+    for nd in adj:
+        key = (int(nd[0] * MLAT // CROSS), int(nd[1] * MLON // CROSS))
+        cell.setdefault(key, []).append(nd)
     crossings = 0
     for (cy, cx), nodes in cell.items():
         cand = []
@@ -142,49 +144,98 @@ def main():
                     continue
                 link(u, v)
                 crossings += 1
+    return adj, snaps, crossings
 
-    def dijkstra(src, dst):
-        if src == dst:
-            return [src]
-        dist = {src: 0.0}
-        prev = {}
-        pq = [(0.0, src)]
-        seen = set()
-        while pq:
-            d, u = heapq.heappop(pq)
-            if u in seen:
+
+def dijkstra(adj, src, dst=None):
+    """Distances from src. Stops early at dst when one is given.
+    Returns (dist, prev)."""
+    dist = {src: 0.0}
+    prev = {}
+    pq = [(0.0, src)]
+    seen = set()
+    while pq:
+        d, u = heapq.heappop(pq)
+        if u in seen:
+            continue
+        seen.add(u)
+        if u == dst:
+            break
+        for v, w in adj.get(u, ()):
+            nd = d + w
+            if nd < dist.get(v, float('inf')):
+                dist[v] = nd
+                prev[v] = u
+                heapq.heappush(pq, (nd, v))
+    return dist, prev
+
+
+def path_between(adj, a, b):
+    if a == b:
+        return [a]
+    dist, prev = dijkstra(adj, a, b)
+    if b not in dist:
+        return None
+    path, u = [b], b
+    while u != a:
+        u = prev[u]
+        path.append(u)
+    path.reverse()
+    return path
+
+
+def street_matrix(stops, adj=None, snaps=None):
+    """All-pairs walking distance between stops, in metres, along real streets.
+
+    This is what the route solver should be minimising: route3.py/route_final.py
+    have always used straight-line distance, which on a street grid systematically
+    misjudges which stop is really "next" -- two houses back to back across a block
+    are 40 m apart and a 300 m walk.
+
+    One Dijkstra per stop over the whole graph, then read off the other stops'
+    snap points. Falls back to straight-line for any pair the graph can't connect,
+    so the matrix is always complete.
+    """
+    if adj is None:
+        adj, snaps, _ = build_graph(stops)
+    n = len(stops)
+    pts = [(s['lat'], s['lon']) for s in stops]
+    D = [[0.0] * n for _ in range(n)]
+    for i in range(n):
+        dist, _ = dijkstra(adj, snaps[i][0])
+        for j in range(n):
+            if j == i:
                 continue
-            seen.add(u)
-            if u == dst:
-                break
-            for v, w in adj.get(u, ()):
-                nd = d + w
-                if nd < dist.get(v, float('inf')):
-                    dist[v] = nd
-                    prev[v] = u
-                    heapq.heappush(pq, (nd, v))
-        if dst not in dist:
-            return None
-        path, u = [dst], dst
-        while u != src:
-            u = prev[u]
-            path.append(u)
-        path.reverse()
-        return path
+            straight = m(pts[i], pts[j])
+            if straight < SHORT:
+                D[i][j] = straight
+                continue
+            d = dist.get(snaps[j][0])
+            D[i][j] = straight if d is None else d
+    # Dijkstra is symmetric here, but snapping is not exactly -- average the two
+    # directions so the solver can't exploit a difference that isn't real.
+    for i in range(n):
+        for j in range(i + 1, n):
+            avg = (D[i][j] + D[j][i]) / 2
+            D[i][j] = D[j][i] = avg
+    return D
 
+
+def legs_for(stops, adj, snaps):
+    """One street-following polyline per leg, in stops order, closing the loop."""
     legs, total, failed = [], 0.0, 0
-    N = len(stops)
-    for i in range(N):
-        a, b = stops[i], stops[(i + 1) % N]
-        pa, pb = snaps[i][0], snaps[(i + 1) % N][0]
-        if m((a['lat'], a['lon']), (b['lat'], b['lon'])) < 30:
+    n = len(stops)
+    for i in range(n):
+        a, b = stops[i], stops[(i + 1) % n]
+        pa, pb = snaps[i][0], snaps[(i + 1) % n][0]
+        if m((a['lat'], a['lon']), (b['lat'], b['lon'])) < SHORT:
             # Next-door neighbours. Routing them out to the street and back draws
             # a pointless hairpin over a few metres -- just join the two houses.
             legs.append([[round(a['lat'], 5), round(a['lon'], 5)],
                          [round(b['lat'], 5), round(b['lon'], 5)]])
             total += m((a['lat'], a['lon']), (b['lat'], b['lon']))
             continue
-        path = dijkstra(pa, pb)
+        path = path_between(adj, pa, pb)
         if path is None:
             # Disconnected graph -- fall back to the straight line for this leg
             # rather than dropping it, so the loop always closes.
@@ -192,20 +243,25 @@ def main():
             legs.append([[a['lat'], a['lon']], [b['lat'], b['lon']]])
             total += m((a['lat'], a['lon']), (b['lat'], b['lon']))
             continue
-        # house -> sidewalk -> ... -> sidewalk -> house
         pts = [(a['lat'], a['lon'])] + path + [(b['lat'], b['lon'])]
         pts = [p for j, p in enumerate(pts) if j == 0 or p != pts[j - 1]]
         for j in range(len(pts) - 1):
             total += m(pts[j], pts[j + 1])
         legs.append([[round(p[0], 5), round(p[1], 5)] for p in pts])
+    return legs, total, failed
+
+
+def main():
+    stops = json.load(io.open(os.path.join(HERE, 'stops.json'), encoding='utf-8'))
+    adj, snaps, crossings = build_graph(stops)
+    legs, total, failed = legs_for(stops, adj, snaps)
 
     out = json.dumps(legs, separators=(',', ':'))
     io.open(os.path.join(HERE, 'walk.json'), 'w', encoding='utf-8').write(out)
 
-    # routemeta.json's loop_mi is the straight-line distance the route solver
-    # optimised against. Now that the drawn path follows streets, that number is
-    # no longer what anyone actually walks -- and it is the number the page
-    # quotes to readers. Record the real one alongside it.
+    # routemeta.json's loop_mi is the straight-line distance. Even now that the
+    # solver optimises street distance, the two differ, and walk_mi is the one
+    # the page quotes to readers.
     mp = os.path.join(HERE, 'routemeta.json')
     meta = json.load(io.open(mp, encoding='utf-8'))
     meta['walk_mi'] = round(total / 1609.344, 2)

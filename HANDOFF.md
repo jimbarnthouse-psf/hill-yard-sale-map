@@ -54,14 +54,16 @@ of the sales but never **where to actually walk**:
    and **does not** auto-pan. See [You are here](#you-are-here).
 3. **Building outlines: investigated and rejected.** See
    [Why there are no buildings](#why-there-are-no-buildings-on-the-map).
+4. **The route order was re-solved on street distance**, which renumbered every
+   house. 7.54 → 7.28 mi as drawn. Artifact **v16 was published before this
+   re-solve**, so its numbering is the old one — republish before relying on it.
 
 The landmark toggle is **gone** — Jim judged the layer wouldn't get used, and the
 button slot was better spent on location. The three landmarks themselves are
 unchanged and now simply always drawn (which was their default state anyway).
 
-**Still open for Jim after this session** — see [Open items](#open-items) for the
-big one: the route *order* is still optimised for straight-line distance, not for
-the street distance now being drawn.
+**Still open:** none of this is tested on a real phone yet — see
+[You are here](#you-are-here).
 
 ### The drawn path (`walk.py`)
 
@@ -91,11 +93,16 @@ Also: legs between houses less than 30 m apart are drawn as a straight line rath
 than routed, because routing next-door neighbours out to the sidewalk and back
 drew a pointless hairpin.
 
-**The distance changed and the page says so.** Straight-line loop: 5.27 mi. Walked
-along streets: **7.54 mi**. `walk.py` writes `walk_mi` into `routemeta.json`
-alongside the solver's `loop_mi`, and the footnote now quotes `walk_mi`. The old
-5.27 figure was never what anyone would actually walk; the footnote used to
-promise it.
+`walk.py` is also imported as a module by the route solver — `street_matrix()` is
+what it now optimises against. See
+[The solver optimises real street distance](#the-solver-optimises-real-street-distance-changed-2026-09-18).
+
+**The distance changed and the page says so.** The footnote used to promise 5.27 mi,
+the straight-line figure the solver optimised; nobody was ever going to walk that.
+It now quotes `walk_mi`, the drawn distance, currently **7.28 mi**. `walk.py` writes
+`walk_mi` into `routemeta.json` on every run. Note `loop_mi` there is the solver's
+own figure (7.02) — same units, but it excludes the house-to-sidewalk stubs the drawn
+path includes, so the two legitimately differ.
 
 ### You are here
 
@@ -327,8 +334,9 @@ cards" deserve reading in full.
 
 ## The route, and why it is what it is
 
-A **closed loop** of about **5.27 miles**, 59 stops. `stops.json` array order (its
-internal `startAt=0`) starts at `2023 Macklind Ave` and ends at `5415 Wilson Ave` —
+A **closed loop**, 59 stops, **7.28 miles as drawn and walked**. `stops.json` array
+order (its internal `startAt=0`) starts at `5414 Wilson Ave` and ends at
+`2023 Macklind Ave` —
 this is no longer surfaced in the UI as *the* start (Jim asked for that framing
 removed, see below), but it's still the array order everything else is numbered from
 until a reader picks their own.
@@ -343,29 +351,50 @@ since neither is near either outlier:
 
 Everything else has a neighbor within ~190 m. Solving as a **loop** satisfies the
 constraint structurally: first and last stop are adjacent by definition, so if one is
-central both are. The two outliers sit mid-route (`#3` and `#37` as of the current
-address set — re-check after any `--data` re-run, these shift); Magnolia is an
-unavoidable out-and-back spur.
+central both are. The outliers sit mid-route (re-check their numbers after any
+`--data` or `--route` re-run — they shift); Magnolia is an unavoidable out-and-back
+spur.
 
-### The legibility/distance tradeoff — a deliberate choice, not an accident
+**Outliers are still measured on straight-line distance**, on purpose, even though
+the solver now optimises street distance. Jim's rule is a geographic statement and
+the 400 m threshold was tuned against straight-line; switching it would inflate every
+isolation score and quietly reclassify stops he already signed off on. `route3.py`
+and `route_final.py` keep both matrices (`DS` straight-line, `D` street) for exactly
+this reason — **don't collapse them into one.**
 
-`route3.py` optimizes `distance + PEN × (number of street runs)`. The frontier below
-was measured against the address set at handoff (2026-09-17) — the exact mileage per
-PEN value will have drifted slightly after the 2026-09-18 swap, but the shape of the
-tradeoff (and PEN=100 as the knee) hasn't; re-run `python3 route3.py` in `build/` to
-refresh the table if it matters:
+### The solver optimises real street distance (changed 2026-09-18)
+
+`route3.py` / `route_final.py` minimise `distance + PEN × (number of street runs)`,
+where **`distance` is now metres walked along real streets**, from
+`walk.street_matrix()` — one Dijkstra per stop over the pedestrian graph.
+
+It used to be straight-line distance, which on a street grid systematically misjudges
+which stop is really "next": two houses back to back across a block are 40 m apart and
+a 300 m walk, and the solver would happily pair them. Re-solving on street distance
+took the loop from **7.29 mi to 7.02 mi** as the solver measures it (7.54 → 7.28 mi
+as drawn, which also counts the short house-to-sidewalk stub at each stop).
+
+This costs ~18 s of Dijkstra before the solve, and `route3.py`'s full sweep is now
+~2 min. Both scripts `import walk`, so **they must be run from inside `build/`** —
+already true of everything here.
+
+The frontier, re-measured on street distance (2026-09-18):
 
 | PEN | miles | street runs | character |
 |-----|-------|-------------|-----------|
-| 0 | 4.98 | 36 | shortest, but crosses Bischoff 3 separate times |
-| 50 | 4.97 | 33 | |
-| **100** | **5.23** | **26** | **shipped** — the knee |
-| 175 | 5.64 | 22 | |
-| 600 | 6.74 | 18 | one street at a time, fully legible |
+| 0 | 6.98 | 32 | shortest, but hops between streets constantly |
+| 50 | 7.02 | 27 | |
+| **100** | **7.02** | **27** | **shipped** — the knee |
+| 175 | 7.22 | 24 | |
+| 300 | 7.87 | 20 | |
+| 600 | 8.35 | 18 | one street at a time, fully legible |
 
-PEN=100 costs 5% over optimal to cut street-hopping by a third. Jim was told the
-numbers and can switch: `python3 route_final.py <PEN>` then `./build.sh`. Distances
-are straight-line, so real sidewalk walking is more like 5.5–6 mi.
+PEN=100 costs 0.6% over optimal to cut five street runs — a clearer knee than the old
+straight-line frontier had. Jim was shown the numbers and can switch:
+`python3 route_final.py <PEN>` from `build/`, then `./build.sh`.
+
+**Re-solving renumbers every house.** Same hazard as adding a late signup — if
+anything numbered has been printed or shared, it has to happen before that.
 
 ---
 
@@ -580,17 +609,6 @@ JSON.stringify(nums)===JSON.stringify(Array.from({length:59},(_,i)=>i+1))  // mu
 
 ## Open items
 
-- **The route order still optimises the wrong distance — Jim's call, 8 days out.**
-  `route3.py` / `route_final.py` solve the loop on **straight-line** distance, which
-  is what the numbering was frozen against. The map now draws the **street** distance
-  (5.27 mi → 7.54 mi walked), and those two disagree about what "nearest next stop"
-  means — so the shipped order is not the shortest street walk, just the shortest
-  crow-flies one. `walk.py` can now measure real street distance between any two
-  stops, so re-solving on it is genuinely possible and would likely recover a good
-  chunk of that gap.
-  **The catch: re-solving renumbers every house.** Same hazard as adding a late
-  signup. If Jim has shared numbered links, or prints anything, this has to happen
-  before that — or not at all. Raised with him; not decided.
 - **Printable flyer / PDF** — Jim's original ask, still not built. One page: map plus
   the numbered list. He deferred it this round.
 - **Google My Maps CSV/KML export** — also originally requested, deferred. All the

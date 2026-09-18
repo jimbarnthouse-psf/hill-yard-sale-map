@@ -5,12 +5,19 @@ Large PEN forces one street at a time (legible, but longer). The knee in
 between is a route a person can actually follow without losing much distance.
 """
 import json, math, sys
+import walk
 
 S = json.load(open('stops.json'))
 CL = math.cos(math.radians(38.615))
 def xy(s): return (s['lon']*111320*CL, s['lat']*111320)
 P = [xy(s) for s in S]; n = len(P)
-D = [[math.hypot(P[i][0]-P[j][0], P[i][1]-P[j][1]) for j in range(n)] for i in range(n)]
+
+# Straight-line, kept only for the outlier test.
+DS = [[math.hypot(P[i][0]-P[j][0], P[i][1]-P[j][1]) for j in range(n)] for i in range(n)]
+
+# Real metres walked along streets -- see the note in route_final.py.
+print("routing on real street distance (one Dijkstra per stop)...")
+D = walk.street_matrix(S)
 ST = [s['street'] for s in S]
 
 def dist(o): return sum(D[o[i]][o[(i+1) % len(o)]] for i in range(len(o)))
@@ -50,7 +57,7 @@ def improve(o, cost):
 
 iso = {}
 for i in range(n):
-    ds = sorted(D[i][j] for j in range(n) if j != i); iso[i] = sum(ds[:3])/3
+    ds = sorted(DS[i][j] for j in range(n) if j != i); iso[i] = sum(ds[:3])/3
 OUT = {i for i in range(n) if iso[i] > 400}
 
 def solve(pen, starts=14):
