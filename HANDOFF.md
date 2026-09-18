@@ -1,6 +1,6 @@
 # The Hill Yard Sale Map — handoff
 
-**Live artifact:** https://claude.ai/artifact/XTPHamraY1feVFwMaanuQp (Version 12)
+**Live artifact:** https://claude.ai/artifact/XTPHamraY1feVFwMaanuQp (Version 13)
 **Live on GitHub Pages:** https://jimbarnthouse-psf.github.io/hill-yard-sale-map/
 **Repo:** https://github.com/jimbarnthouse-psf/hill-yard-sale-map (public)
 **Event:** Saturday, September 26, 2026, 8am–noon. The Hill, St. Louis 63110.

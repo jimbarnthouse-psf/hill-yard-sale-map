@@ -826,11 +826,22 @@ function setStart(i){
   syncNumbers(); syncStartUI(); render();
   /* the list just reordered around the new #1 -- anchor back to it rather than
      leaving the reader scrolled to wherever they were in the old order.
-     scrollTop resets #list's own scroller (desktop, two columns); scrollIntoView
-     also handles mobile, where the page scrolls and #list has no scroller of
-     its own. */
-  listEl.scrollTop = 0;
-  listEl.scrollIntoView({block:'start', behavior:'smooth'});
+     Desktop: #list is its own scroller (overflow-y:auto), reset is just
+     scrollTop=0. Mobile: the page scrolls and #mapcol is position:sticky
+     above #list, so land the window scroll exactly below the sticky map by
+     measurement rather than trusting scrollIntoView's sticky-ancestor
+     handling, which isn't reliable across browsers. Instant, not smooth --
+     confirmed window.scrollTo({behavior:'smooth'}) silently no-ops in at
+     least one real browser context, 2026-09-18; a jump beats a broken
+     no-op animation. */
+  if(getComputedStyle(listEl).overflowY==='auto'){
+    listEl.scrollTop = 0;
+  } else {
+    var mapcol = document.getElementById('mapcol');
+    var stuckH = mapcol ? mapcol.getBoundingClientRect().height : 0;
+    var delta = listEl.getBoundingClientRect().top - stuckH;
+    window.scrollTo(0, Math.max(0, window.scrollY + delta));
+  }
   if(sel!==null) select(sel);
 }
 function syncStartUI(){
