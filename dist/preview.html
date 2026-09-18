@@ -321,6 +321,32 @@ article.card.near .cnum{background:var(--you); color:var(--on-accent)}
 }
 #locmsg[hidden]{display:none!important}
 
+/* ---------- the selected sale ----------
+   This used to be a popup floating over the map. On a phone the card covered
+   most of the map it was describing -- the thing the reader needed to look at.
+   It lives at the top of the list column now: on desktop the map column is left
+   completely alone, and on a phone it sits directly under the sticky map. */
+#nowpanel{
+  flex:none; background:var(--surface); border:1px solid var(--brick);
+  box-shadow:0 0 0 2px color-mix(in srgb, var(--brick) 15%, transparent), var(--shadow);
+  border-radius:11px; padding:10px 11px 11px; margin:0 2px 9px;
+}
+#nowpanel[hidden]{display:none!important}
+.nowhd{display:grid; grid-template-columns:auto 1fr auto auto; gap:8px; align-items:center}
+.nownum{font-family:var(--mono); font-size:12px; font-weight:500; color:var(--on-accent);
+  background:var(--brick); border-radius:6px; padding:3px 8px;
+  font-variant-numeric:tabular-nums}
+.nowad{font-family:var(--display); font-size:14px; text-transform:uppercase;
+  letter-spacing:-.01em; line-height:1.2; min-width:0}
+.nowvn{font-size:11.5px; color:var(--basil); font-weight:600; margin-top:2px}
+.nowit{margin:8px 0 0; font-size:12.5px; color:var(--ink-2); line-height:1.45;
+  max-height:112px; overflow-y:auto}
+.nowit + .nowit{border-top:1px dashed var(--line); padding-top:7px}
+.nowpay{margin-top:6px; display:inline-block}
+button.nowx{border:0; background:none; cursor:pointer; color:var(--mute);
+  font-size:17px; line-height:1; padding:3px 5px; border-radius:6px}
+button.nowx:hover{color:var(--brick); background:var(--line-soft)}
+
 /* ---------- next stop ---------- */
 /* The popup's primary action. Brick, full width, and the biggest thing in the
    card, because "where do I go next" is the question a reader standing on the
@@ -410,7 +436,7 @@ button.pick .pad{font-family:var(--mono); font-weight:500; font-size:12.5px; let
 article.card{
   background:var(--surface); border:1px solid var(--line); border-radius:10px;
   padding:10px 11px; cursor:pointer; display:grid;
-  grid-template-columns:28px 1fr; gap:10px; align-items:start;
+  grid-template-columns:28px 1fr auto; gap:10px; align-items:start;
   transition:border-color .12s, box-shadow .12s, background .12s; text-align:left;
 }
 article.card:hover{border-color:var(--ink-2); box-shadow:var(--shadow)}
@@ -429,16 +455,26 @@ article.card.on .cnum{background:var(--brick); color:var(--on-accent)}
   overflow:hidden}
 article.card.on .cit{-webkit-line-clamp:unset; display:block}
 .ctags{display:flex; flex-wrap:wrap; gap:4px; margin-top:7px}
+/* The category tags were regex-derived from the item text sitting right above
+   them, so every card restated its own description in worse words. Only the
+   payment chip survives on a card -- that is information the description does
+   not carry. The tags still drive the filter chips. */
 .tg{font-size:11px; font-weight:600; letter-spacing:.015em; color:var(--ink-2);
   background:var(--sunk); border-radius:5px; padding:2px 6px; white-space:nowrap}
 .tg.hit{background:color-mix(in srgb, var(--brick) 15%, var(--sunk)); color:var(--brick)}
 .tg.cash{background:color-mix(in srgb, var(--basil) 13%, var(--sunk)); color:var(--basil)}
 .approx{font-size:10.5px; color:var(--gold); font-weight:600; margin-top:5px;
   display:flex; gap:4px; align-items:center}
-.golink{display:inline-flex; align-items:center; gap:4px; font-family:var(--mono);
-  font-size:11px; color:var(--brick); text-decoration:none; margin-top:8px;
-  font-weight:500; border:1px solid var(--line); border-radius:6px; padding:3px 7px}
-.golink:hover{background:var(--sunk); border-color:var(--brick)}
+/* Directions is an icon now, and the glyph is an arrow leaving a box rather
+   than a plain chevron: it hands off to Google Maps, and nothing about a bare
+   "Directions" label said the reader was about to leave the page. The bold leg
+   on the map is the in-page answer; this is for getting there from elsewhere. */
+.golink{display:grid; place-items:center; width:28px; height:28px; flex:none;
+  color:var(--mute); text-decoration:none; border:1px solid var(--line);
+  border-radius:7px; background:var(--surface)}
+.golink svg{width:14px; height:14px; display:block}
+.golink:hover{color:var(--brick); border-color:var(--brick); background:var(--sunk)}
+.golink:focus-visible{outline:2px solid var(--brick); outline-offset:1px}
 .empty{text-align:center; color:var(--mute); font-size:13px; padding:30px 14px}
 .empty b{display:block; font-family:var(--display); font-size:13px; color:var(--ink);
   text-transform:uppercase; margin-bottom:5px; letter-spacing:.02em}
@@ -481,14 +517,20 @@ footer#foot a{color:var(--mute)}
   .tally{margin-left:0}
   .lhead-row{flex-wrap:wrap; gap:4px}
   .modes{margin-left:0}
-  /* the card competes with the map for a short phone screen -- let the item
+  /* The selected-sale panel sticks directly under the sticky map, so the sale
+     and its "next stop" stay on screen while the reader scrolls the list.
+     The offset has to track #mapcol's height above it -- keep the two in step. */
+  #nowpanel{position:sticky; z-index:4; margin-bottom:10px;
+    top:calc(52vh + env(safe-area-inset-top, 0px))}
+  /* the panel competes with the map for a short phone screen -- let the item
      text scroll sooner so the address and the next-stop step always fit */
-  #pop .it{max-height:74px}
+  #nowpanel .nowit{max-height:74px}
 }
 @media (max-width:520px){
   .mast h1{font-size:20px}
   .search{max-width:none; flex-basis:100%}
   #mapcol{height:50vh}
+  #nowpanel{top:calc(50vh + env(safe-area-inset-top, 0px))}   /* tracks #mapcol */
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important; animation:none!important}}
 
@@ -610,6 +652,7 @@ footer#foot a{color:var(--mute)}
         </div>
         <p class="hint" id="lhint">Tap a sale to see the walk to the next one.</p>
       </div>
+      <div id="nowpanel" role="region" aria-label="Selected sale" hidden></div>
       <div id="list"></div>
     </div>
   </div>
@@ -840,7 +883,7 @@ function drawLeg(){
 function showLeg(i){
   activeLeg = (i===null ? null : i);
   drawLeg();
-  if(i!==null){ fitLeg(i); if(sel!==null) placePop(sel); }
+  if(i!==null) fitLeg(i);
 }
 /* On by default. It used to default off, back when the line was crow-flies and
    mostly told you the order you were already reading in the list. Now that it
@@ -874,6 +917,7 @@ function ordered(){
 }
 
 var pins=[], lms=[], cards=[], sel=null, meEl=null;
+var nowEl=document.getElementById('nowpanel');
 var clusterBadges=[], badgeInfo=[], stopPos=[], arrowEls=[];
 var CLUSTER_PX = 32;   /* screen-px: pin centers closer than this collapse into one badge */
 
@@ -1032,8 +1076,7 @@ function apply(){
   });
   updateClusters();
   updLabels(); updScale();
-  if(sel!==null) placePop(sel);
-  else if(pickerAt) placePopAt(pickerAt[0]*k+tx, pickerAt[1]*k+ty);
+  if(pickerAt) placePopAt(pickerAt[0]*k+tx, pickerAt[1]*k+ty);
 }
 /* labels: keep text a constant screen size by scaling font instead of the group,
    and hide the rare label whose anchor point would fall under a fixed map
@@ -1335,72 +1378,51 @@ mloop.onclick=function(){ setMode('loop'); };
 /* ---------------- popup ---------------- */
 function esc(s){ return String(s).replace(/[&<>"]/g,function(c){
   return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
-function popHTML(s){
-  var n=num(s);
-  var h='<button class="x" type="button" aria-label="Close">&times;</button>'+
-    '<div class="hd"><span class="num">'+n+'</span><div><div class="ad">'+esc(s.addr)+'</div>'+
-    (s.venue?'<div class="vn">'+esc(s.venue)+'</div>':'')+'</div></div>';
+/* arrow-out-of-box, the standard "this leaves the page" glyph -- it hands off
+   to Google Maps for turn-by-turn, which a bare "Directions" label never said */
+function goLink(s){
+  return '<a class="golink" target="_blank" rel="noopener" title="Open in Google Maps" '+
+    'aria-label="Open '+esc(s.addr)+' in Google Maps (opens a new tab)" '+
+    'href="https://www.google.com/maps/search/?api=1&query='+s.lat+'%2C'+s.lon+'">'+
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" '+
+    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+
+    '<path d="M14 4h6v6"/><path d="M20 4l-8.5 8.5"/>'+
+    '<path d="M19 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V6a1 1 0 011-1h5"/></svg></a>';
+}
+function nowHTML(s){
+  var h='<div class="nowhd"><span class="nownum">'+num(s)+'</span>'+
+    '<div style="min-width:0"><div class="nowad">'+esc(s.addr)+'</div>'+
+    (s.venue?'<div class="nowvn">'+esc(s.venue)+'</div>':'')+'</div>'+
+    goLink(s)+
+    '<button class="nowx" type="button" aria-label="Clear selection">&times;</button></div>';
   s.sellers.forEach(function(x){
-    h+='<p class="it">'+esc(x.items)+
-       '<br><span class="tg '+(x.cashOnly?'cash':'')+'" style="margin-top:5px;display:inline-block">'+
-       esc(x.pay)+'</span></p>';
+    /* the seller's payment string verbatim -- entries like "Cash (preferred)...
+       $3.00 processing fee applies to cards" deserve reading in full */
+    h+='<p class="nowit">'+esc(x.items)+
+       '<br><span class="tg nowpay '+(x.cashOnly?'cash':'')+'">'+esc(x.pay)+'</span></p>';
   });
-  /* The answer to "I'm here, where next?" -- the one thing the old popup never
-     told anyone. Tapping it walks the reader along the loop one leg at a time,
-     and the map draws that single leg. */
+  /* The answer to "I'm here, where next?". Tapping it walks the reader along
+     the loop one leg at a time, and the map draws that single leg. */
   var nx=STOPS[(s.i+1)%N];
   h+='<button class="nextbtn" type="button" data-next="'+nx.i+'">'+
      '<span class="nlab">Next stop</span>'+
      '<span class="nnum">'+num(nx)+'</span>'+
      '<span class="nad">'+esc(nx.addr)+'</span>'+
      '<span class="ndist">'+legLabel(s.i)+'</span></button>';
-  h+='<a class="golink" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query='+
-     s.lat+'%2C'+s.lon+'">Directions &rarr;</a>';
   return h;
 }
-/* Points along the bold leg, in screen px, densified so a long straight run
-   can't slip between samples. */
-function legSamples(){
-  if(activeLeg===null) return [];
-  var out=[], L=WALK[activeLeg];
-  for(var i=0;i<L.length-1;i++){
-    var a=px(L[i][0],L[i][1]), b=px(L[i+1][0],L[i+1][1]);
-    for(var t=0;t<1;t+=0.125)
-      out.push([(a[0]+(b[0]-a[0])*t)*k+tx, (a[1]+(b[1]-a[1])*t)*k+ty]);
-  }
-  var e=px(L[L.length-1][0],L[L.length-1][1]);
-  out.push([e[0]*k+tx, e[1]*k+ty]);
-  return out;
-}
-/* The card is anchored to the selected pin and the bold leg starts at that same
-   pin, so any fixed side eventually lands on top of the line -- an above/below
-   rule left one leg 100% hidden behind its own card. Try the four positions
-   around the pin and keep whichever covers least of the line. With no leg
-   active every candidate scores 0 and the first, "above", wins, which is where
-   the card has always gone. */
+/* The only overlay left on the map is the cluster picker, which is small and
+   user-invoked, so a plain above-the-badge placement with a flip is enough.
+   (The sale card used to live here too and needed a scoring routine to stay off
+   the bold leg; it is in the list column now and the whole problem is gone.) */
 function placePopAt(sx,sy){
   pop.hidden=false;
   var pw=pop.offsetWidth, ph=pop.offsetHeight;
-  var cands=[[sx-pw/2, sy-ph-30], [sx-pw/2, sy+16],
-             [sx-pw-26, sy-ph/2], [sx+26, sy-ph/2]];
-  var pts=legSamples(), best=null;
-  for(var c=0;c<cands.length;c++){
-    var L=Math.max(8, Math.min(W-pw-8, cands[c][0]));
-    var T=Math.max(8, Math.min(H-ph-8, cands[c][1]));
-    var hits=0;
-    for(var i=0;i<pts.length;i++){
-      var q=pts[i];
-      if(q[0]>=L && q[0]<=L+pw && q[1]>=T && q[1]<=T+ph) hits++;
-    }
-    if(best===null || hits<best.h) best={h:hits, L:L, T:T};
-    if(hits===0) break;
-  }
-  pop.style.left=best.L.toFixed(0)+'px'; pop.style.top=best.T.toFixed(0)+'px';
-}
-function placePop(i){
-  var s=STOPS[i]; if(!s) return;
-  var q=px(s.lat,s.lon);
-  placePopAt(q[0]*k+tx, q[1]*k+ty);
+  var L=sx-pw/2, T=sy-ph-30;
+  if(T<8) T=sy+16;
+  L=Math.max(8, Math.min(W-pw-8, L));
+  T=Math.max(8, Math.min(H-ph-8, T));
+  pop.style.left=L.toFixed(0)+'px'; pop.style.top=T.toFixed(0)+'px';
 }
 /* a cluster of genuinely next-door houses can be closer together in real
    distance than any zoom level can separate into individually tappable pins
@@ -1427,10 +1449,14 @@ function openPicker(members, cx, cy){
 }
 pop.addEventListener('click', function(e){
   if(e.target.closest('.x')){ select(null); return; }
-  var nb=e.target.closest('.nextbtn');
-  if(nb){ var ni=+nb.dataset.next; select(ni, true); showLeg(ni); return; }
   var pk=e.target.closest('.pick');
   if(pk){ var i=+pk.dataset.i; select(i, true); showLeg(i); }
+});
+nowEl.addEventListener('click', function(e){
+  if(e.target.closest('.golink')) return;   /* let the Google Maps link through */
+  if(e.target.closest('.nowx')){ select(null); return; }
+  var nb=e.target.closest('.nextbtn');
+  if(nb){ var ni=+nb.dataset.next; select(ni, true); showLeg(ni); }
 });
 
 /* ---------------- selection ---------------- */
@@ -1444,15 +1470,27 @@ function select(i, fromMap){
   updateClusters();   /* the selected stop is always shown standalone, never clustered */
   pins.forEach(function(p,j){ p.classList.toggle('on', j===i); });
   cards.forEach(function(c){ if(c) c.classList.toggle('on', +c.dataset.i===i); });
-  if(i===null){ pop.hidden=true; return; }
-  pop.innerHTML=popHTML(STOPS[i]);
-  placePop(i);
+  pop.hidden=true;   /* the picker, if one was open */
+  if(i===null){ nowEl.hidden=true; return; }
+  nowEl.innerHTML=nowHTML(STOPS[i]);
+  nowEl.hidden=false;
   var card=cards.find(function(c){ return c && +c.dataset.i===i; });
   if(card && fromMap){
     var lr=listEl.getBoundingClientRect(), cr=card.getBoundingClientRect();
     if(cr.top<lr.top+4 || cr.bottom>lr.bottom-4)
       listEl.scrollTop += (cr.top-lr.top) - lr.height/2 + cr.height/2;
   }
+  /* On a phone the page itself scrolls and the panel sits below the sticky map,
+     so a selection made while scrolled down the list would land off-screen. */
+  if(getComputedStyle(listEl).overflowY!=='auto') revealPanel();
+}
+/* Put the panel just below the sticky map. Measured, and instant rather than
+   smooth -- see scrollListToTop() for why smooth scrolling isn't trusted here. */
+function revealPanel(){
+  var mapcol=document.getElementById('mapcol');
+  var stuckH=mapcol ? mapcol.getBoundingClientRect().height : 0;
+  var delta=nowEl.getBoundingClientRect().top - stuckH;
+  if(delta<-2 || delta>2) window.scrollTo(0, Math.max(0, window.scrollY + delta));
 }
 /* metres actually walked on leg i, summed along the routed path */
 var legM=[];
@@ -1483,23 +1521,14 @@ function fitLeg(i){
   var MINSPAN_M=190, perM=base/111320;
   var w=Math.max(Math.max.apply(null,xs)-Math.min.apply(null,xs), MINSPAN_M*perM);
   var h=Math.max(Math.max.apply(null,ys)-Math.min.apply(null,ys), MINSPAN_M*perM);
-  /* The popup is anchored to the selected pin and the leg radiates from that
-     same pin, so a centred fit puts the card straight on top of the line it is
-     describing. Instead: shrink the fit by BAND, push the leg to whichever end
-     of the frame it already leans towards, and leave BAND free on the other
-     side for the card, which placePopAt() then finds by scoring. */
-  /* BAND is measured from the card itself, not guessed: a fixed 180 was
-     smaller than a tall popup, so the guard in placePopAt flipped the card back
-     over the leg it was meant to avoid. */
-  var GAP=22, BAND=Math.min(H*0.5, (pop.hidden?170:pop.offsetHeight||170)+46);
-  var q0=px(WALK[i][0][0], WALK[i][0][1]);
-  var minY=Math.min.apply(null,ys), maxY=Math.max.apply(null,ys);
-  var up = (q0[1]-minY) >= (maxY-q0[1]);   /* more of the leg above the pin */
-
-  var kx2=(W-GAP*2)/Math.max(w,1), ky2=(H-BAND-GAP)/Math.max(h,1);
+  /* A plain centred fit, now that the sale card has moved off the map. It used
+     to need a reserved band and a scoring routine to keep the card off the line
+     it was describing; the card lives in the list column and that whole problem
+     is gone. */
+  var GAP=26;
+  var kx2=(W-GAP*2)/Math.max(w,1), ky2=(H-GAP*2)/Math.max(h,1);
   k=Math.max(MINK, Math.min(6, Math.min(kx2,ky2)));
-  tx=W/2-cx*k;
-  ty = up ? (GAP - (cy-h/2)*k) : (H-GAP - (cy+h/2)*k);
+  tx=W/2-cx*k; ty=H/2-cy*k;
   clamp(); apply();
 }
 
@@ -1588,8 +1617,6 @@ function render(){
     c.className='card'; c.dataset.i=s.i; c.tabIndex=0;
     c.setAttribute('role','button');
     var items=s.sellers.map(function(x){return x.items;}).join('  \u2022  ');
-    var tags=s.tags.map(function(t){
-      return '<span class="tg'+(active[t]?' hit':'')+'">'+esc(t)+'</span>'; }).join('');
     c.innerHTML='<div class="cnum">'+num(s)+'</div><div style="min-width:0">'+
       '<div class="cad">'+esc(s.addr)+'</div>'+
       (grouped ? '' : '<div class="cdist">'+
@@ -1598,11 +1625,8 @@ function render(){
       (s.sellers.length>1?'<div class="cvn" style="color:var(--gold)">'+
          s.sellers.length+' households at this address</div>':'')+
       '<div class="cit">'+esc(items)+'</div>'+
-      '<div class="ctags">'+tags+
-        (s.cashOnly?'<span class="tg cash">Cash only</span>':'')+'</div>'+
-      '<a class="golink" target="_blank" rel="noopener" '+
-        'href="https://www.google.com/maps/search/?api=1&query='+s.lat+'%2C'+s.lon+'">'+
-        'Directions &rarr;</a></div>';
+      (s.cashOnly?'<div class="ctags"><span class="tg cash">Cash only</span></div>':'')+
+      '</div>'+goLink(s);
     function go(){ select(s.i); showLeg(s.i); }
     c.addEventListener('click', function(e){ if(e.target.closest('a')) return; go(); });
     c.addEventListener('keydown', function(e){
@@ -1640,7 +1664,14 @@ function relayout(){
 buildPins();
 document.getElementById('footnote').innerHTML=footnoteHTML();
 syncModeUI(); relayout(); render();
-window.addEventListener('resize', function(){ relayout(); render(); });
+window.addEventListener('resize', function(){
+  relayout(); render();
+  /* measure() recomputes the projection scale, but tx/ty/k are still in the old
+     one, so the view slides off whatever the reader was looking at -- most
+     visible on a phone rotating or the browser chrome collapsing. Re-frame the
+     leg they were sent to, or fall back to fitting everything. */
+  if(activeLeg!==null) fitLeg(activeLeg); else fit();
+});
 document.addEventListener('keydown', function(e){ if(e.key==='Escape') select(null); });
 })();
 </script>

@@ -88,13 +88,15 @@ What changed:
    opacity, thin) as context. `gLeg` draws **one leg bold** -- the walk from the
    selected sale to the next one. `showLeg()` sets it; `drawLeg()` renders it.
    Direction chevrons now appear **only on the active leg**, not all 59.
-2. **The popup's primary action is "Next stop"** -- number, address and real
+2. **The card's primary action is "Next stop"** -- number, address and real
    walking distance, as a full-width brick button. Tapping it advances to that
    sale and shows *its* onward leg, so the popup walks you around the loop one
    step at a time. This is the feature; everything else supports it.
 3. **The destination pin is forced out of its cluster** (`solo()` in
    `updateClusters()`) and ringed (`.pin.dest`). A destination hidden inside a
    cluster badge doesn't answer "where am I going".
+   The sale card itself moved off the map entirely in the next pass — see
+   [The card came off the map](#the-card-came-off-the-map-fourth-pass).
 4. **Two list modes**, `#mnear` / `#mloop`: *Closest to me* (sorts by distance
    from the reader, drops the street headings, puts a distance on every card) and
    *Walking loop*. Choosing "Closest to me" without a position **turns location
@@ -109,15 +111,47 @@ What changed:
    leg. Burying the next-stop line behind a toggle is exactly what made the old
    route line invisible to everyone.
 
-**`placePopAt()` scores its own position.** The card is anchored to the selected
+#### The card came off the map (fourth pass)
+
+Jim's verdict on the popup version: *"those location pop ups just take up the
+whole map. It's almost unusable."* He was right — on a phone the card covered
+most of the thing it was describing.
+
+- **`#nowpanel`**, at the top of the list column, replaces the map popup for
+  sales. Desktop: the map column is left completely alone. Phone: it is
+  `position: sticky` directly under the sticky `#mapcol`, so the selected sale
+  and its **Next stop** button stay on screen while the list scrolls past.
+  **Its `top` offset is hard-coded to `#mapcol`'s height (52vh, 50vh under
+  520px) — change one and you must change the other.**
+- `#pop` still exists but now serves **only the cluster picker**, which is small
+  and user-invoked. Its placement went back to a plain above-with-flip; the
+  four-position scoring routine below is gone, because the card that needed it
+  is no longer on the map. `placePop()` (anchored to a stop) is gone too.
+- `fitLeg()` lost its reserved band and just centres the leg, for the same reason.
+- **Cards dropped the category tags.** They were regex-derived from the item text
+  printed directly above them, so every card restated its own description in
+  worse words. Only the "Cash only" chip survives, because that is information
+  the description does not carry. The tags still drive the filter chips.
+- **Directions is an icon** (arrow-leaving-a-box, `goLink()`), shared by cards and
+  the panel. Jim noted he didn't expect to be sent off-site: the glyph is the
+  standard external-link mark and the `aria-label` says "opens a new tab". The
+  in-page answer to "where do I go" is the bold leg; this is for turn-by-turn
+  from somewhere else.
+- **Resize re-frames the map.** `measure()` recomputes the projection scale while
+  `tx/ty/k` are still in the old one, so the view slid off whatever the reader was
+  looking at — most visible on a phone rotating or browser chrome collapsing. The
+  resize handler now re-runs `fitLeg()` (or `fit()`).
+
+**A previous pass's `placePopAt()` scored its own position.** That code is gone
+now (see above), but the reasoning is worth keeping in case the card ever goes
+back over the map: The card is anchored to the selected
 pin and the bold leg starts at that same pin, so any fixed side eventually lands
 on the line. It now tries four positions around the pin and keeps whichever
 covers least of the leg, measured against sampled points. Before: one leg was
 **100% hidden behind its own card**. After: worst case is 42%, on the two folded
 I-44 footbridge legs, where both endpoints stay visible; 57 of 59 are under 10%.
-`fitLeg()` also frames the leg to one end of the map and sizes the free band from
-the card's real height -- a hard-coded 180px was smaller than a tall card, which
-made the placement guard flip it straight back over the leg.
+A hard-coded reserve does not work either: 180px was smaller than a tall card, so
+the placement guard flipped it straight back over the leg.
 
 **`--on-accent` is a new palette token.** Text sitting on a `--brick` / `--gold` /
 `--basil` / `--you` fill was hard-coded `#fff`. That is fine on the light palette,
