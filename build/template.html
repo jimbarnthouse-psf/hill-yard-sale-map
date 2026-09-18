@@ -23,7 +23,7 @@
 <style>
 :root{
   color-scheme:light dark;
-  --brick:#A63328; --brick-deep:#7E241C; --basil:#2E6B41; --gold:#B8811F;
+  --brick:#A63328; --brick-deep:#7E241C; --basil:#2E6B41; --gold:#B8811F; --you:#1F62A8;
   --ink:#241A17; --ink-2:#4A3B35; --mute:#6C5D55;
   --paper:#FAF7F4; --surface:#FFFFFF; --sunk:#F1EBE6;
   --line:#E4DBD4; --line-soft:#EFE8E3;
@@ -42,7 +42,7 @@
 :root[data-theme="dark"]{color-scheme:dark}
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]){
-    --brick:#E0674F; --brick-deep:#F08E75; --basil:#79B98C; --gold:#DCA83F;
+    --brick:#E0674F; --brick-deep:#F08E75; --basil:#79B98C; --gold:#DCA83F; --you:#7FB6EA;
     --ink:#F4EDE8; --ink-2:#D6C8C0; --mute:#A3928A;
     --paper:#181310; --surface:#221B17; --sunk:#2A211C;
     --line:#3A2F29; --line-soft:#2E2520;
@@ -53,7 +53,7 @@
   }
 }
 :root[data-theme="dark"]{
-  --brick:#E0674F; --brick-deep:#F08E75; --basil:#79B98C; --gold:#DCA83F;
+  --brick:#E0674F; --brick-deep:#F08E75; --basil:#79B98C; --gold:#DCA83F; --you:#7FB6EA;
   --ink:#F4EDE8; --ink-2:#D6C8C0; --mute:#A3928A;
   --paper:#181310; --surface:#221B17; --sunk:#2A211C;
   --line:#3A2F29; --line-soft:#2E2520;
@@ -266,8 +266,44 @@ button.mbtn.wide{width:auto; padding:0 11px; font-size:11.5px; font-weight:600;
   white-space:nowrap;
 }
 .lm.flip .lbl{left:auto; right:25px}
-#pinlayer.nolm .lm{display:none}
-button.mbtn.lmb[aria-pressed="true"]{background:var(--basil); border-color:var(--basil)}
+
+/* ---------- you are here ----------
+   --you, not --basil: green already means "landmark" on this map and brick
+   means "sale", so the reader's own position needs its own colour or it reads
+   as a fourth orientation marker. */
+button.mbtn.locb[aria-pressed="true"]{background:var(--you); border-color:var(--you); color:#fff}
+button.mbtn.locb[data-state="wait"]{opacity:.6}
+#me{
+  position:absolute; top:0; left:0; width:18px; height:18px; margin:-9px 0 0 -9px;
+  transform-origin:9px 9px; pointer-events:none; z-index:40;
+}
+#me[hidden]{display:none!important}
+#me .acc{
+  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+  border-radius:50%; background:color-mix(in srgb, var(--you) 16%, transparent);
+  border:1px solid color-mix(in srgb, var(--you) 40%, transparent);
+}
+#me .me-dot{
+  position:absolute; inset:0; border-radius:50%; background:var(--you);
+  border:2.5px solid #fff; box-shadow:0 1px 4px rgba(36,26,23,.42);
+}
+/* The nearest stop, so the reader can find where they are in the list without
+   the list itself reordering away from the walking loop. Distinct from .on
+   (the selected stop) on purpose — both can be true at once. */
+button.clusterbtn.near .cbd{box-shadow:0 2px 4px rgba(36,26,23,.36), 0 0 0 2.5px var(--surface), 0 0 0 5px var(--you)}
+button.pin.near .bd{box-shadow:0 2px 3px rgba(36,26,23,.34), 0 0 0 2.5px var(--surface), 0 0 0 5px var(--you)}
+article.card.near{border-color:var(--you);
+  box-shadow:0 0 0 2px color-mix(in srgb, var(--you) 17%, transparent), var(--shadow)}
+article.card.near .cnum{background:var(--you); color:#fff}
+/* Top-left, stopping short of the zoom column. Bottom-centre put it straight
+   through the scale bar on a phone, and the map's own controls own the right
+   edge at every width. */
+#locmsg{
+  position:absolute; left:9px; right:50px; top:9px; z-index:55;
+  background:var(--surface); border:1px solid var(--line); border-radius:8px;
+  box-shadow:var(--shadow); padding:6px 10px; font-size:12px; color:var(--ink-2);
+}
+#locmsg[hidden]{display:none!important}
 
 /* ---------- start-of-loop controls ---------- */
 .lhead .from{font-family:var(--mono); font-size:11px; color:var(--mute);
@@ -425,7 +461,7 @@ footer#foot a{color:var(--mute)}
      their light, near-white dark-mode values against the forced white page */
   :root{
     color-scheme:light;
-    --brick:#A63328; --brick-deep:#7E241C; --basil:#2E6B41; --gold:#B8811F;
+    --brick:#A63328; --brick-deep:#7E241C; --basil:#2E6B41; --gold:#B8811F; --you:#1F62A8;
     --ink:#241A17; --ink-2:#4A3B35; --mute:#6C5D55;
     --paper:#FAF7F4; --surface:#FFFFFF; --sunk:#F1EBE6;
     --line:#E4DBD4; --line-soft:#EFE8E3;
@@ -490,18 +526,19 @@ footer#foot a{color:var(--mute)}
       <div id="mapshell">
         <svg id="mapsvg" aria-label="Street map of the sale locations" role="img"></svg>
         <div id="pinlayer"></div>
+        <div id="locmsg" role="status" aria-live="polite" hidden></div>
         <div class="mapui tr">
           <button class="mbtn" id="zin" type="button" aria-label="Zoom in">+</button>
           <button class="mbtn" id="zout" type="button" aria-label="Zoom out">&minus;</button>
-          <button class="mbtn lmb" id="lmbtn" type="button" aria-pressed="true"
-                  aria-label="Show landmarks" title="Landmarks">
+          <button class="mbtn locb" id="locbtn" type="button" aria-pressed="false"
+                  aria-label="Show my location on the map" title="My location">
             <svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor"
                  stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M10 18s5.5-5.2 5.5-9a5.5 5.5 0 10-11 0c0 3.8 5.5 9 5.5 9z"></path>
               <circle cx="10" cy="8.7" r="1.9"></circle>
             </svg>
           </button>
-          <button class="mbtn" id="rtbtn" type="button" aria-pressed="false"
+          <button class="mbtn" id="rtbtn" type="button" aria-pressed="true"
                   aria-label="Show the walking route" title="Walking route">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
                  stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -546,12 +583,16 @@ footer#foot a{color:var(--mute)}
 <script id="geomdata" type="application/json">__GEOM__</script>
 <script id="stopdata" type="application/json">__STOPS__</script>
 <script id="routemeta" type="application/json">__META__</script>
+<script id="walkdata" type="application/json">__WALK__</script>
 <script>
 (function(){
 "use strict";
 var GEOM  = JSON.parse(document.getElementById('geomdata').textContent);
 var STOPS = JSON.parse(document.getElementById('stopdata').textContent);
 var META  = JSON.parse(document.getElementById('routemeta').textContent);
+/* WALK[i] is the path a walker actually takes from stop i to stop i+1, routed
+   along real streets at build time by walk.py. The last leg closes the loop. */
+var WALK  = JSON.parse(document.getElementById('walkdata').textContent);
 
 var G_CHURCH='<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.9" '+
   'stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v3"/><path d="M8.5 3.4h3"/>'+
@@ -608,7 +649,8 @@ function px(lat,lon){ return [ (lon-V.w)*kx*base + ox, (V.n-lat)*base + oy ]; }
 var uiRects=[];
 function measureUIRects(){
   var sr = shell.getBoundingClientRect(), pad=10;
-  uiRects = Array.prototype.map.call(document.querySelectorAll('.mapui'), function(el){
+  uiRects = Array.prototype.map.call(
+    document.querySelectorAll('.mapui, #locmsg:not([hidden])'), function(el){
     var r = el.getBoundingClientRect();
     return { l:r.left-sr.left-pad, r:r.right-sr.left+pad, t:r.top-sr.top-pad, b:r.bottom-sr.top+pad };
   });
@@ -718,13 +760,18 @@ function drawMap(){
     });
   });
 
-  /* the walking loop, in stop order — closed, because it returns to the start.
-     Kept under the pins (SVG paints beneath #pinlayer) and dialed down a touch
-     from the arrows so it reads as the path, not the primary mark. */
-  var rpts = STOPS.map(function(s){ return [s.lat, s.lon]; });
-  gRoute.appendChild(el('path',{ d:dOf(rpts)+'Z', fill:'none', stroke:'var(--brick)',
-    'stroke-width':2.2, 'stroke-dasharray':'6 5', 'stroke-linecap':'round',
-    'stroke-linejoin':'round', opacity:'.45',
+  /* The walking loop. This follows real streets (walk.py routes it over the OSM
+     street network) rather than running crow-flies stop to stop, which used to
+     cut straight through blocks and so never told a reader where to walk.
+     One <path> with 59 subpaths — the legs meet at the houses, so it draws as a
+     continuous loop. Kept under the pins (SVG paints beneath #pinlayer).
+
+     Solid, not dashed: now that the line traces streets it reads as a route to
+     follow, and a dash pattern at this width broke up into noise against the
+     road casing it sits on. */
+  gRoute.appendChild(el('path',{ d:WALK.map(dOf).join(''), fill:'none',
+    stroke:'var(--brick)', 'stroke-width':3.4, 'stroke-linecap':'round',
+    'stroke-linejoin':'round', opacity:'.42',
     'vector-effect':'non-scaling-stroke' }));
   gRoute.style.display = routeOn ? '' : 'none';
 
@@ -734,7 +781,11 @@ function drawMap(){
   svg.appendChild(world);
   labelGroup = gLab; routeGroup = gRoute;
 }
-var labelGroup=null, routeGroup=null, routeOn=false;   /* off by default; the popup's own "start the loop here" flow is the primary path */
+/* On by default. It used to default off, back when the line was crow-flies and
+   mostly told you the order you were already reading in the list. Now that it
+   traces the actual streets it is the answer to "where do I walk next", which
+   nobody will find behind a toggle they have to guess at. */
+var labelGroup=null, routeGroup=null, routeOn=true;
 
 /* ---------------- sale pins + landmarks ----------------
    A stop's identity is its fixed position in the loop (s.i). The number
@@ -753,13 +804,15 @@ function num(s){ return ((s.i - startAt + N) % N) + 1; }
 function ordered(){ return STOPS.slice(startAt).concat(STOPS.slice(0, startAt)); }
 function lastStop(){ return STOPS[(startAt - 1 + N) % N]; }
 
-var pins=[], lms=[], cards=[], sel=null, lmOn=true;
+var pins=[], lms=[], cards=[], sel=null, meEl=null;
 var clusterBadges=[], badgeInfo=[], stopPos=[], arrowEls=[];
 var CLUSTER_PX = 32;   /* screen-px: pin centers closer than this collapse into one badge */
 
 function buildPins(){
-  layer.innerHTML='<div id="routearrows" aria-hidden="true"></div>';
+  layer.innerHTML='<div id="routearrows" aria-hidden="true"></div>'+
+    '<div id="me" aria-hidden="true" hidden><span class="acc"></span><span class="me-dot"></span></div>';
   var routeArrowsEl = document.getElementById('routearrows');
+  meEl = document.getElementById('me');
   pins = STOPS.map(function(s){
     var b=document.createElement('button');
     b.type='button'; b.className='pin'+(s.sellers.length>1?' multi':'');
@@ -830,14 +883,26 @@ function placePins(){
     lms[i].style.left=q[0].toFixed(1)+'px';
     lms[i].style.top =q[1].toFixed(1)+'px';
   });
+  /* Put each leg's chevron halfway along the path as walked, not halfway
+     between the two houses — now that a leg turns corners, the straight-line
+     midpoint can sit off the route entirely, on the wrong side of a block. */
   STOPS.forEach(function(s,i){
-    var a=stopPos[i], b=stopPos[(i+1)%N];
-    var mx=(a[0]+b[0])/2, my=(a[1]+b[1])/2;
-    var ang=Math.atan2(b[1]-a[1], b[0]-a[0])*180/Math.PI;
+    var leg=WALK[i].map(function(p){ return px(p[0],p[1]); });
+    var seg=[], tot=0, j;
+    for(j=0;j<leg.length-1;j++){
+      var L=Math.hypot(leg[j+1][0]-leg[j][0], leg[j+1][1]-leg[j][1]);
+      seg.push(L); tot+=L;
+    }
+    var want=tot/2, run=0, k=0;
+    while(k<seg.length-1 && run+seg[k]<want){ run+=seg[k]; k++; }
+    var t = seg[k] ? (want-run)/seg[k] : 0;
+    var a=leg[k], b=leg[k+1]||leg[k];
     var o=arrowEls[i];
-    o.ang=ang;
-    o.el.style.left=mx.toFixed(1)+'px'; o.el.style.top=my.toFixed(1)+'px';
+    o.ang=Math.atan2(b[1]-a[1], b[0]-a[0])*180/Math.PI;
+    o.el.style.left=(a[0]+(b[0]-a[0])*t).toFixed(1)+'px';
+    o.el.style.top =(a[1]+(b[1]-a[1])*t).toFixed(1)+'px';
   });
+  placeMe();
   lastClusterKey=null;   /* positions moved; re-cluster on the next apply() */
 }
 function setStart(i){
@@ -875,7 +940,7 @@ function syncStartUI(){
 }
 function footnoteHTML(){
   var base='<b>Saturday, September 26, 2026 &middot; 8am to noon.</b> '+
-    'A walking loop of about '+META.loop_mi+' miles through '+N+' sales. ';
+    'A walking loop of about '+(META.walk_mi||META.loop_mi)+' miles through '+N+' sales. ';
   var pick = startAt===0
     ? 'Tap any house and choose &ldquo;start the loop here&rdquo; to number the list from there.'
     : 'As numbered here it starts at <b>'+esc(STOPS[startAt].addr)+'</b> and ends nearby at <b>'+
@@ -901,6 +966,7 @@ function apply(){
   clusterBadges.forEach(function(b){ b.style.transform='scale('+f+')'; });
   arrowEls.forEach(function(o){ o.el.style.transform='rotate('+o.ang.toFixed(1)+'deg) scale('+f+')'; });
   var lf=(1/k).toFixed(4);
+  if(mePos){ placeMe(); meEl.lastChild.style.transform='scale('+lf+')'; }
   lms.forEach(function(d,i){
     d.style.transform='scale('+lf+')';
     var q=px(LANDMARKS[i].lat, LANDMARKS[i].lon);
@@ -939,7 +1005,7 @@ function updLabels(){
    on the current selection, not run on every drag frame. */
 var lastClusterKey=null;
 function updateClusters(){
-  var key = k.toFixed(4)+'|'+sel;
+  var key = k.toFixed(4)+'|'+sel+'|'+nearI;
   if(key===lastClusterKey) return;
   lastClusterKey=key;
 
@@ -980,6 +1046,9 @@ function updateClusters(){
     badge.hidden=false;
     badge.style.left=cx.toFixed(1)+'px'; badge.style.top=cy.toFixed(1)+'px';
     badge.firstChild.firstChild.textContent=comp.length;
+    /* the nearest stop may be swallowed by a cluster, and a highlight on a
+       display:none pin helps nobody -- mark the badge standing in for it */
+    badge.classList.toggle('near', comp.indexOf(nearI)>=0);
     var streets={}; comp.forEach(function(i){ streets[STOPS[i].street]=1; });
     badge.setAttribute('aria-label', comp.length+' sales near '+
       Object.keys(streets).slice(0,2).join(' & ')+', tap to choose one');
@@ -1064,18 +1133,112 @@ shell.addEventListener('pointercancel', up);
 document.getElementById('zin').onclick  = function(){ zoomAt(W/2,H/2,1.5); };
 document.getElementById('zout').onclick = function(){ zoomAt(W/2,H/2,1/1.5); };
 document.getElementById('zfit').onclick = function(){ fit(); select(null); };
-var lmbtn=document.getElementById('lmbtn');
-lmbtn.onclick=function(){
-  lmOn=!lmOn;
-  lmbtn.setAttribute('aria-pressed', lmOn?'true':'false');
-  layer.classList.toggle('nolm', !lmOn);
-};
 var rtbtn=document.getElementById('rtbtn');
 rtbtn.onclick=function(){
   routeOn=!routeOn;
   rtbtn.setAttribute('aria-pressed', routeOn?'true':'false');
   if(routeGroup) routeGroup.style.display = routeOn ? '' : 'none';
   layer.classList.toggle('noroute', !routeOn);
+};
+
+/* ---------------- you are here ----------------
+   navigator.geolocation is a browser API, not a network request, so it doesn't
+   touch the CSP or this page's zero-runtime-fetch property. The position is used
+   only to draw the dot and to work out the nearest stop; it is never sent
+   anywhere, and there is no backend here to send it to. Keep it that way.
+
+   Deliberately NOT auto-panning: recentring would fight a reader who has looked
+   ahead up the loop or opened a popup. The dot moves, the map stays put. */
+var locbtn=document.getElementById('locbtn'), locmsg=document.getElementById('locmsg');
+var locWatch=null, locOn=false, mePos=null, meAccM=0, nearI=null;
+
+function locSay(t){
+  locmsg.textContent=t||''; locmsg.hidden=!t;
+  /* it joins the map controls as a no-go rect for street labels, and it can
+     grow to two lines, so re-measure rather than trusting the resize handler */
+  measureUIRects(); updLabels();
+}
+
+function metres(aLat,aLon,bLat,bLon){
+  var dy=(aLat-bLat)*111320, dx=(aLon-bLon)*111320*kx;
+  return Math.sqrt(dy*dy+dx*dx);
+}
+function nearestStop(){
+  var best=null, bd=Infinity;
+  STOPS.forEach(function(s,i){
+    var d=metres(mePos[0],mePos[1],s.lat,s.lon);
+    if(d<bd){ bd=d; best=i; }
+  });
+  return [best, bd];
+}
+/* Highlights the nearest stop in both map and list. The list order itself is
+   left alone on purpose -- its whole point is the fixed walking loop, and
+   sorting it by proximity would quietly dismantle that. */
+function syncNear(){
+  pins.forEach(function(p,i){ p.classList.toggle('near', i===nearI); });
+  cards.forEach(function(c){ if(c) c.classList.toggle('near', +c.dataset.i===nearI); });
+  updateClusters();
+}
+function placeMe(){
+  if(!meEl) return;
+  if(!mePos){ meEl.hidden=true; return; }
+  var q=px(mePos[0],mePos[1]);
+  meEl.hidden=false;
+  meEl.style.left=q[0].toFixed(1)+'px';
+  meEl.style.top =q[1].toFixed(1)+'px';
+  /* The accuracy ring is a real-world radius, so it lives in layer units and
+     rides the map's zoom transform. The dot is a screen mark, so apply()
+     counter-scales it instead. */
+  var r=Math.max(0, meAccM)/111320*base;
+  var acc=meEl.firstChild;
+  acc.style.width=(r*2).toFixed(1)+'px';
+  acc.style.height=(r*2).toFixed(1)+'px';
+  /* r is in layer units, so the on-screen size is r*k -- hide the ring only
+     when it would be smaller than the dot it sits under, at the current zoom */
+  acc.style.display = (r*k)>11 ? '' : 'none';
+}
+function onPos(p){
+  locbtn.removeAttribute('data-state');
+  mePos=[p.coords.latitude, p.coords.longitude];
+  meAccM=p.coords.accuracy||0;
+  placeMe(); apply();
+  if(mePos[0]<V.s || mePos[0]>V.n || mePos[1]<V.w || mePos[1]>V.e){
+    nearI=null; syncNear();
+    locSay('You’re outside the map area — nothing to show yet.');
+    return;
+  }
+  var n=nearestStop(); nearI=n[0]; syncNear();
+  /* kept short deliberately: at 375px anything longer wraps to a second line
+     and eats the top of the map */
+  var d=n[1], ft=Math.round(d*3.28084);
+  locSay('Nearest: #'+num(STOPS[nearI])+' '+STOPS[nearI].addr+
+         ' · '+(d<300 ? ft+' ft' : (d/1609.344).toFixed(1)+' mi'));
+}
+function onLocErr(e){
+  stopLoc();
+  locSay(e && e.code===1
+    ? 'Location is off for this page. The map still works — you just won’t see your dot.'
+    : 'Couldn’t get a location fix. Try again in the open air.');
+}
+function stopLoc(){
+  if(locWatch!==null && navigator.geolocation) navigator.geolocation.clearWatch(locWatch);
+  locWatch=null; locOn=false; mePos=null; nearI=null;
+  locbtn.setAttribute('aria-pressed','false');
+  locbtn.removeAttribute('data-state');
+  placeMe(); syncNear();
+}
+locbtn.onclick=function(){
+  if(locOn){ stopLoc(); locSay(''); return; }
+  if(!navigator.geolocation){ locSay('This browser can’t share a location.'); return; }
+  locOn=true;
+  locbtn.setAttribute('aria-pressed','true');
+  locbtn.setAttribute('data-state','wait');
+  locSay('Finding you…');
+  /* watchPosition, not getCurrentPosition: the point is to keep up as they walk.
+     The first fix can be slow and coarse, so no maximumAge -- a cached fix from
+     across town is worse than waiting. */
+  locWatch=navigator.geolocation.watchPosition(onPos, onLocErr,
+    { enableHighAccuracy:true, timeout:20000, maximumAge:0 });
 };
 
 /* ---------------- popup ---------------- */
@@ -1268,6 +1431,7 @@ function render(){
       if(e.key==='Enter'||e.key===' '){ e.preventDefault(); go(); } });
     listEl.appendChild(c); cards.push(c);
   });
+  syncNear();   /* the cards were just rebuilt, so re-apply the nearest-stop mark */
   if(sel!==null && !keep[sel]) select(null);
   else if(sel!==null) select(sel);
 }

@@ -38,6 +38,15 @@ case "$1" in
     ;;
 esac
 
+# walk.json is the drawn path, routed along real streets between the stops in
+# stops.json -- so a stale one would draw the last build's path between this
+# build's houses. Same trap as the build.py/route_final.py ordering above.
+if [ ! -f walk.json ] || [ stops.json -nt walk.json ]; then
+  echo
+  echo "==> walk.py         stops + OSM streets -> walk.json (the drawn path)"
+  python3 walk.py
+fi
+
 echo
 echo "==> inject.py       template + data -> dist/"
 python3 inject.py

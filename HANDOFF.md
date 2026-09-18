@@ -4,7 +4,7 @@
 **Live on GitHub Pages:** https://jimbarnthouse-psf.github.io/hill-yard-sale-map/
 **Repo:** https://github.com/jimbarnthouse-psf/hill-yard-sale-map (public)
 **Event:** Saturday, September 26, 2026, 8am–noon. The Hill, St. Louis 63110.
-**Handed off:** September 17, 2026, updated September 18, 2026 — 8 days out.
+**Handed off:** September 17, 2026, updated September 18, 2026 (twice) — 8 days out.
 **Owner:** Jim Barnthouse (jim.barnthouse@mac.com)
 
 An interactive map of 59 neighborhood yard sales, numbered as a walking loop.
@@ -39,40 +39,119 @@ masthead redesign that gave the map more vertical room. Full detail and the
 All of the above is **live on both deploy targets** as of Version 15 / the latest
 `main` push — see the links at the top of this file.
 
-## What this session should do next
+## What happened 2026-09-18 (second session) — the walking path is real now
 
-Jim wants to try using the **phone's live location** to make following the walking
-loop easier — the obvious version is a "you are here" dot on the map, but he's open
-to what that should actually do. Discuss with him before building; there's a real
-product question buried in it (see below), not just an implementation one.
+Three things Jim asked for, after he pointed out that the map showed the *order*
+of the sales but never **where to actually walk**:
 
-**Technical starting points:**
-- `navigator.geolocation.watchPosition()` is a **browser API, not a network
-  request** — it doesn't touch the CSP or the "zero runtime network dependencies"
-  property this page is built around (see the CSP section below). Safe to use.
-- Requires HTTPS. Both deploy targets already serve over HTTPS — no change needed.
-- Requires an explicit, native browser permission prompt the first time it's called;
-  design for the reader saying no (map still works, they just don't get a dot).
-- **Never transmit the location anywhere.** There's no backend to send it to
-  today — keep it that way. All use should be client-side only (drawing the dot,
-  distance/nearest-stop math), and that should stay true even if this grows.
-- The PWA/home-screen setup (manifest.json, icons) shipped this session — test
-  geolocation specifically in **standalone/home-screen mode**, not just in-browser;
-  permission persistence and prompting can behave differently there, especially on
-  iOS Safari.
-- Projecting a live lat/lon into map coordinates is exactly what `px(lat,lon)`
-  already does for every pin and landmark — reuse it, don't reinvent it.
+1. **The route line now follows real streets.** It used to be crow-flies stop to
+   stop — a straight line through blocks, backyards and the interstate. It is now
+   routed over the OSM street network at build time by the new `build/walk.py`.
+   It is also **on by default**; it used to be off, which is why almost nobody saw
+   it. See [The drawn path](#the-drawn-path-walkpy) below.
+2. **"You are here"** — a live-location dot, behind a toggle, off until tapped.
+   Highlights the nearest sale in both map and list; **does not** reorder the list
+   and **does not** auto-pan. See [You are here](#you-are-here).
+3. **Building outlines: investigated and rejected.** See
+   [Why there are no buildings](#why-there-are-no-buildings-on-the-map).
 
-**Real product questions to raise with Jim, not just decide unilaterally:**
-- Does the map **auto-pan/recenter** on the reader's position as they walk (a true
-  "follow me" mode), or just draw a dot and leave panning to them? Auto-recentering
-  can fight a reader who's deliberately looked ahead or opened a popup.
-- Should it **highlight or auto-select the nearest not-yet-visited stop**, or reorder
-  the list by proximity? Careful — the list's whole point is the *fixed walking
-  loop order* Jim solved for; a proximity reorder could quietly undermine that and
-  deserves an explicit decision, not a default.
-- Is this a toggle (like the existing landmarks/route buttons) or always-on once
-  granted?
+The landmark toggle is **gone** — Jim judged the layer wouldn't get used, and the
+button slot was better spent on location. The three landmarks themselves are
+unchanged and now simply always drawn (which was their default state anyway).
+
+**Still open for Jim after this session** — see [Open items](#open-items) for the
+big one: the route *order* is still optimised for straight-line distance, not for
+the street distance now being drawn.
+
+### The drawn path (`walk.py`)
+
+`build/walk.py` reads `osm.json` (raw tags — **not** `geom.json`, which tiers roads
+for drawing and throws the `highway` tag away), builds a pedestrian graph, snaps
+each stop to the nearest walkable edge, and runs Dijkstra between consecutive
+stops around the loop. Output is `walk.json`: one `[lat, lon]` polyline per leg,
+leg `i` running from stop `i` to stop `i+1`, last leg closing the loop. ~10 KB
+inlined, so the page went 262 KB → 280 KB. Runs in under a second.
+
+Two things in it are load-bearing and were each arrived at by fixing a real,
+visible bug — **don't undo either without re-checking the other**:
+
+- **Footways are included.** I-44 crosses the bbox (OSM name: "Officer Michael
+  Barwick Memorial Highway") and severs Marconi Ave. The only pedestrian link
+  across it is a mapped footbridge. Drop footways and the router detours ~700 m
+  around an interstate a walker simply crosses.
+- **`CROSS = 22.0` adds a connector between any two graph nodes closer than 22 m.**
+  Keeping footways reintroduces the opposite problem: where OSM maps a street's
+  two sides as separate sidewalk ways, the router will only cross between them at
+  a mapped crossing — so walking to the house *directly across the street* became
+  a 153 m detour (2336 → 2315 Macklind Ave, 19 m apart). 22 m spans a residential
+  street here while staying well under the ~60 m between parallel streets, so it
+  never fuses two blocks, and an interstate is far too wide to bridge.
+
+Also: legs between houses less than 30 m apart are drawn as a straight line rather
+than routed, because routing next-door neighbours out to the sidewalk and back
+drew a pointless hairpin.
+
+**The distance changed and the page says so.** Straight-line loop: 5.27 mi. Walked
+along streets: **7.54 mi**. `walk.py` writes `walk_mi` into `routemeta.json`
+alongside the solver's `loop_mi`, and the footnote now quotes `walk_mi`. The old
+5.27 figure was never what anyone would actually walk; the footnote used to
+promise it.
+
+### You are here
+
+`navigator.geolocation.watchPosition()` — a browser API, not a network request, so
+it doesn't touch the CSP or this page's zero-runtime-fetch property. **The position
+is never transmitted anywhere and there is no backend to send it to. Keep it that
+way.**
+
+Decisions Jim made explicitly, so don't quietly reverse them:
+
+- **No auto-pan.** The dot moves; the map stays where the reader put it.
+  Recentring would fight someone who has looked ahead or opened a popup.
+- **The list never reorders by proximity.** Its whole point is the fixed walking
+  loop. The nearest stop is *highlighted* in both map and list instead.
+- **Toggle, off by default**, so no one gets a permission prompt they didn't ask
+  for. It reuses the map-pin icon the landmark button used to have.
+
+Implementation notes worth keeping:
+
+- The nearest stop can be swallowed by a cluster badge, and a highlight on a
+  `display:none` pin helps nobody — `updateClusters()` marks the badge instead,
+  and `nearI` is part of its memo key so the badge updates as the reader moves.
+- The dot counter-scales (`1/k`) like a landmark; the **accuracy ring does not** —
+  it's a real-world radius, so it lives in layer units and rides the zoom. Its
+  hide-threshold has to be `r*k`, in screen px, not `r`.
+- `#locmsg` joins `.mapui` as a no-go rect for street labels, and re-measures on
+  every message because it can grow to two lines.
+- Handled and tested: permission denied, position unavailable, reader outside the
+  map bbox, and toggling off mid-fix.
+- **`--you` is a new palette token** (`#1F62A8` light, `#7FB6EA` dark), added to all
+  four palette blocks. It is deliberately *not* `--basil`: green already means
+  "landmark" and brick means "sale", so the reader's own position needed its own
+  colour or it read as a fourth orientation marker.
+
+**Not yet tested on a real phone** — in particular geolocation in
+**standalone/home-screen (PWA) mode**, where iOS Safari's permission prompting and
+persistence differ from in-browser. That's the first thing to check on device.
+
+### Why there are no buildings on the map
+
+Jim asked for building outlines to help the map read as a real neighborhood. I
+fetched them (`build/qb.txt` is the Overpass query, over the map's own bbox) and
+**rejected the result**: OSM has only 398 buildings in the whole area, and
+
+- only **8 of the 59 sale houses** have a mapped building at all, and
+- only **16 of the 42** 100 m cells containing sales have any building.
+
+Drawing that scatters a few outlines across a mostly empty map and reads as if
+those houses were being singled out — actively misleading on a map whose entire
+job is marking specific houses. `qb.txt` is kept so nobody has to re-derive this;
+the raw response was deleted.
+
+If the underlying want ("help me recognise where I am") comes back, the honest
+version is **block polygons** — shade the areas enclosed by streets, derived from
+the road geometry already inlined. That needs no new data and can't be patchy,
+because it's computed from the same streets that are already drawn.
 
 ---
 
@@ -136,6 +215,11 @@ rewrites it in **route** order. If you run `build.py` alone and rebuild, the shi
 numbering silently reverts to alphabetical. `build.sh --route` runs both in order —
 prefer it over calling the scripts by hand.
 
+The same trap applies to `walk.json`, which is the path drawn *between* the stops in
+`stops.json` — a stale one draws the last build's route between this build's houses.
+`build.sh` now re-runs `walk.py` automatically whenever `stops.json` is newer, so
+just use `build.sh`.
+
 ### Publishing an update
 
 The artifact is owned by Jim's account. From a new conversation you must pass the
@@ -177,14 +261,17 @@ build/
   route3.py                    route solver, sweeps street-switch penalties
   route_final.py               single-penalty run; PEN=100 produced the shipped order
   geom.py                      osm.json -> geom.json (compress + tier the roads)
+  walk.py                      stops + OSM streets -> walk.json (THE DRAWN PATH)
   q.txt                        the Overpass query, to refetch geometry
+  qb.txt                       the buildings query — see "Why there are no buildings"
   clean.json                   60 parsed listings
   batch.csv                    geocoder input
   geo_raw.csv                  Census batch geocoder output
   osm.json                     raw Overpass response (1.8 MB — avoids refetching)
   geom.json                    compressed street geometry, inlined into the page
   stops.json                   THE DATA — 59 stops, in route order
-  routemeta.json               loop distance, start, end, outliers
+  walk.json                    the drawn path: one street-following polyline per leg
+  routemeta.json               loop distance, start, end, outliers, walked distance
 dist/
   map.html                     what gets published
   preview.html                 same page, locally openable
@@ -468,9 +555,6 @@ JSON.stringify(nums)===JSON.stringify(Array.from({length:59},(_,i)=>i+1))  // mu
   the numbers are the map↔list cross-reference, so hiding them entirely breaks the model.
 - Landmark labels still overlap sale pins in the middle of the map at some zooms. Only
   three, and toggleable, but it's the next collision problem after the pins.
-- The route line crossing itself in the dense core reads a bit busy. Consider drawing
-  it under the pins with a lighter weight, or an arrowhead/direction cue so the loop's
-  direction of travel is legible.
 - The tricolore bar in the masthead goes tall and thin when the header wraps on phones.
 - There's a visible sliver of a card clipped at the sticky map's bottom edge while
   scrolling on mobile — standard sticky behavior, but a mask or fade would be tidier.
@@ -496,12 +580,25 @@ JSON.stringify(nums)===JSON.stringify(Array.from({length:59},(_,i)=>i+1))  // mu
 
 ## Open items
 
+- **The route order still optimises the wrong distance — Jim's call, 8 days out.**
+  `route3.py` / `route_final.py` solve the loop on **straight-line** distance, which
+  is what the numbering was frozen against. The map now draws the **street** distance
+  (5.27 mi → 7.54 mi walked), and those two disagree about what "nearest next stop"
+  means — so the shipped order is not the shortest street walk, just the shortest
+  crow-flies one. `walk.py` can now measure real street distance between any two
+  stops, so re-solving on it is genuinely possible and would likely recover a good
+  chunk of that gap.
+  **The catch: re-solving renumbers every house.** Same hazard as adding a late
+  signup. If Jim has shared numbered links, or prints anything, this has to happen
+  before that — or not at all. Raised with him; not decided.
 - **Printable flyer / PDF** — Jim's original ask, still not built. One page: map plus
   the numbered list. He deferred it this round.
 - **Google My Maps CSV/KML export** — also originally requested, deferred. All the
   geocoded data is ready in `stops.json`, so this is quick.
 - **`2227 Stephen Ct` vs `Stephen Ave`** — unresolved possible typo in the signup.
-- **Neighborhood Center double marker** — landmark *and* sale pin. Jim's call.
+- **Neighborhood Center double marker** — landmark *and* sale pin. Jim's call. Now
+  that the landmark toggle is gone there's no way to hide the duplicate, so this is
+  slightly more pointed than it was.
 - **Whether to forbid the two outliers as a chosen start** — offered, he hasn't decided.
 - **Late signups.** If more houses register before the 26th, `./build.sh --data`
   re-reads the sheet, but re-geocoding is a manual curl step (`build.sh --data` prints

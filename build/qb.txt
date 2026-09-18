@@ -1,0 +1,5 @@
+[out:json][timeout:120];
+(
+  way["building"](38.6074,-90.2890,38.6231,-90.2666);
+);
+out geom;
