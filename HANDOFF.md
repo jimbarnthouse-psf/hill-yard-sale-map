@@ -533,6 +533,7 @@ build/
 share/
   qr.svg, qr.png               plain QR for the GitHub Pages URL
   qr-card.svg                  ready-to-print card, title + QR + date
+  qr-sign.svg                  letter-size sign: QR + add-to-home-screen steps
 dist/
   map.html                     what gets published
   preview.html                 same page, locally openable
@@ -866,6 +867,13 @@ buttons, or drive handlers via `javascript_tool`. Wheel zoom itself is a standar
 - **Battery over a four-hour event is untested.** `watchPosition` runs with
   `enableHighAccuracy:true` from page load. The second tap on the location button
   stops it, but nobody has measured the drain across a real morning.
+- **Add-to-home-screen lives on the signage, not in the page.** Jim was offered
+  an in-page prompt and said no; it is stashed (`git stash list`) if that ever
+  changes. `share/qr-sign.svg` carries the steps instead.
+  **Nothing anywhere claims the map works offline** — there is a manifest and
+  icons but **no service worker**, so a home-screen copy is a full-screen
+  shortcut and nothing more. Don't write that claim without shipping a service
+  worker first, and weigh stale-cache risk before you do.
 - **The QR codes encode the GitHub Pages URL** (`share/`, regenerate with
   `python3 qr.py` from `build/`). **Renaming the repo would change that URL and
   break every printed code** — GitHub redirects renamed *repo* pages, but do not
