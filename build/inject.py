@@ -5,10 +5,11 @@ are replaced with the contents of geom.json, stops.json and routemeta.json. The
 page ships as one self-contained file because the Artifact CSP blocks every
 external fetch (see HANDOFF.md).
 """
-import json, io, os
+import json, io, os, shutil
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DIST = os.path.join(HERE, '..', 'dist')
+PWA = os.path.join(HERE, 'pwa')
 
 def read(name):
     return io.open(os.path.join(HERE, name), encoding='utf-8').read()
@@ -40,6 +41,13 @@ body{margin:0;font:14px system-ui}img{max-width:100%}[hidden]{display:none!impor
 """
 io.open(os.path.join(DIST, 'preview.html'), 'w', encoding='utf-8').write(
     WRAP_HEAD + out + '\n</body></html>\n')
+
+# PWA assets (manifest + home-screen icons) -- checked-in output of
+# make_icons.py, just copied alongside the page so relative hrefs resolve
+# the same way whether this ships as a claude.ai Artifact or GitHub Pages.
+for name in os.listdir(PWA):
+    shutil.copyfile(os.path.join(PWA, name), os.path.join(DIST, name))
+print('dist/manifest.json + %d icons copied from build/pwa/' % (len(os.listdir(PWA)) - 1))
 
 stops = json.load(io.open(os.path.join(HERE, 'stops.json'), encoding='utf-8'))
 meta = json.load(io.open(os.path.join(HERE, 'routemeta.json'), encoding='utf-8'))

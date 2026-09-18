@@ -1,0 +1,15 @@
+{
+  "name": "The Hill Yard Sale Map",
+  "short_name": "Yard Sale Map",
+  "description": "Interactive walking-loop map of 59 yard sales in The Hill, St. Louis — Saturday, September 26, 2026, 8am to noon.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#FAF7F4",
+  "theme_color": "#FAF7F4",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

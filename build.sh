@@ -9,7 +9,8 @@
 # route_final.py then rewrites it in ROUTE order. Running build.py without
 # re-running route_final.py leaves the shipped numbering alphabetical.
 set -e
-cd "$(dirname "$0")/build"
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+cd "$ROOT/build"
 
 case "$1" in
   --data)
@@ -41,10 +42,12 @@ echo
 echo "==> inject.py       template + data -> dist/"
 python3 inject.py
 
-cd "$(dirname "$0")"
+cd "$ROOT"
 if [ -f index.html ]; then
   echo "==> index.html      refreshed from dist/map.html (GitHub Pages serves this)"
   cp dist/map.html index.html
+  echo "==> manifest.json + icons  refreshed from dist/ (GitHub Pages serves these too)"
+  cp dist/manifest.json dist/*.png .
 fi
 
 echo
