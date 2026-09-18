@@ -1,6 +1,6 @@
 # The Hill Yard Sale Map — handoff
 
-**Live artifact:** https://claude.ai/artifact/XTPHamraY1feVFwMaanuQp (Version 14)
+**Live artifact:** https://claude.ai/artifact/XTPHamraY1feVFwMaanuQp (Version 15)
 **Live on GitHub Pages:** https://jimbarnthouse-psf.github.io/hill-yard-sale-map/
 **Repo:** https://github.com/jimbarnthouse-psf/hill-yard-sale-map (public)
 **Event:** Saturday, September 26, 2026, 8am–noon. The Hill, St. Louis 63110.
@@ -372,6 +372,26 @@ pin. He was told and left it; he may prefer it be only a sale pin.
     just sit there, stuck. Fixed with a fallback: if the zoom needed to separate a
     cluster exceeds `MAXK`, tapping it opens a picker (`#pop` repurposed) listing
     each address directly instead of trying to zoom. See `openPicker`/`pickerHTML`.
+
+## Masthead redesign (2026-09-18) — more room for the map
+
+Jim wanted the map bigger. The masthead used to be title+subtitle (sales count/
+street count/loop distance/location — all duplicated elsewhere: the tally line and
+the footnote) on the left, plus a separate `.whenbox` pill (date/time) on the right
+that would **wrap to its own row on narrow screens**, stretching `.tri` (the
+tricolore flag bar) tall and thin — a known issue, never fixed until now.
+
+Restructured to just two children in `.mast`: the title block (title + date/time
+where the old subtitle was) on the left, `.tri` on the right. No more wrappable
+third element, so the flag-bar-goes-tall-and-thin bug is gone structurally, not
+patched. Freed height went straight to the map: mobile `#mapcol` went from
+`46vh`/`44vh` (≤520px) to `52vh`/`50vh`. Desktop's map grows automatically too,
+since `#split` just fills whatever vertical space the header leaves.
+
+**If you touch the masthead again:** `.mast` must stay exactly two flex children
+(title block, `.tri`) with no `flex-wrap` — that's what guarantees it never wraps.
+Re-verify at 320px width (title wraps to 2 lines internally, `.tri` stays put) and
+with the live pill (`#livepill`) shown, not just its default hidden state.
 
 ### Testing notes
 

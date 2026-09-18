@@ -77,30 +77,28 @@ header#top{
   border-bottom:1px solid var(--line);
   padding:14px 16px 12px; padding-block-start:calc(14px + env(safe-area-inset-top,0px));
 }
-.mast{display:flex; align-items:flex-start; gap:14px; flex-wrap:wrap;
+.mast{display:flex; align-items:stretch; gap:14px;
       max-width:1500px; margin:0 auto; width:100%}
 .tri{flex:none; width:7px; align-self:stretch; min-height:42px; border-radius:4px;
      background:linear-gradient(var(--basil) 0 33.3%, #F2EDE8 33.3% 66.6%, var(--brick) 66.6% 100%);
      box-shadow:inset 0 0 0 1px rgba(36,26,23,.10)}
 .mast h1{
   font-family:var(--display); font-size:clamp(19px,4.4vw,27px); line-height:1.05;
-  margin:0 0 3px; letter-spacing:-.017em; text-transform:uppercase; text-wrap:balance;
+  margin:0 0 4px; letter-spacing:-.017em; text-transform:uppercase; text-wrap:balance;
 }
 .mast h1 em{font-style:normal; color:var(--brick)}
-.sub{margin:0; color:var(--mute); font-size:12.5px; letter-spacing:.005em}
-.sub b{font-family:var(--mono); font-weight:500; color:var(--ink-2); font-size:12px}
-.whenbox{
-  margin-left:auto; display:flex; align-items:center; gap:9px;
-  background:var(--sunk); border:1px solid var(--line);
-  border-radius:9px; padding:7px 11px; font-size:12.5px; color:var(--ink-2);
-}
-.whenbox .hrs{font-weight:600; color:var(--ink)}
+/* date/time replaces the old sales-count/location line -- that's already
+   shown in the controls-bar tally and the footnote, so it was duplicate
+   information spent on header height the map could use instead */
+.sub{margin:0; display:flex; align-items:center; gap:9px}
+.sub .cal{font-family:var(--mono); font-size:12px; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--mute); font-weight:500}
+.sub .hrs{font-family:var(--mono); font-size:12px; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--ink-2); font-weight:600}
 .live{font-family:var(--mono); font-size:11px; letter-spacing:.06em;
   text-transform:uppercase; border-radius:5px; padding:3px 6px; font-weight:500}
 .live.on{background:var(--basil); color:#fff}
 .live.done{background:var(--line); color:var(--mute)}
-.whenbox .cal{font-family:var(--mono); font-size:11px; letter-spacing:.06em;
-  text-transform:uppercase; color:var(--ink-2); font-weight:500}
 
 /* ---------- controls ---------- */
 #controls{
@@ -404,13 +402,12 @@ footer#foot a{color:var(--mute)}
   #app{height:auto; min-height:100%}
   #split{flex-direction:column; padding:10px 16px 12px; gap:10px}
   #mapcol{
-    flex:none; height:46vh; min-height:260px;
+    flex:none; height:52vh; min-height:260px;
     position:sticky; top:env(safe-area-inset-top, 0px); z-index:5;
     background:var(--paper); padding-bottom:9px;
   }
   #listcol{flex:0 0 auto; max-width:none; min-height:0}
   #list{overflow:visible; min-height:0}
-  .whenbox{margin-left:0; width:100%}
   .tally{margin-left:0}
   .lhead-row{flex-wrap:wrap; gap:4px}
   .lhead .from{margin-left:0; flex-basis:100%}
@@ -418,7 +415,7 @@ footer#foot a{color:var(--mute)}
 @media (max-width:520px){
   .mast h1{font-size:20px}
   .search{max-width:none; flex-basis:100%}
-  #mapcol{height:44vh}
+  #mapcol{height:50vh}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important; animation:none!important}}
 
@@ -448,17 +445,15 @@ footer#foot a{color:var(--mute)}
 <div id="app">
   <header id="top">
     <div class="mast">
-      <div class="tri" aria-hidden="true"></div>
       <div style="min-width:0">
         <h1>The Hill <em>Yard Sale</em> Map</h1>
-        <p class="sub"><b id="nstops">59</b> sales &middot; <b id="nstreets">18</b> streets
-          &middot; <b id="nmiles"></b> mile loop &middot; The Hill, St. Louis 63110</p>
+        <p class="sub">
+          <span class="cal">Sat Sep 26</span>
+          <span class="hrs">8am &ndash; noon</span>
+          <span class="live" id="livepill" hidden></span>
+        </p>
       </div>
-      <div class="whenbox">
-        <span class="cal">Sat Sep 26</span>
-        <span class="hrs">8am &ndash; noon</span>
-        <span class="live" id="livepill" hidden></span>
-      </div>
+      <div class="tri" aria-hidden="true"></div>
     </div>
   </header>
 
@@ -1278,10 +1273,6 @@ function render(){
 }
 
 /* ---------------- boot ---------------- */
-document.getElementById('nstops').textContent = STOPS.length;
-document.getElementById('nstreets').textContent =
-  new Set(STOPS.map(function(s){return s.street;})).size;
-document.getElementById('nmiles').textContent = META.loop_mi;
 
 /* Saturday 26 September 2026, 8am-noon CDT (UTC-5) */
 var SALE_START = Date.parse('2026-09-26T08:00:00-05:00');
