@@ -512,7 +512,11 @@ footer#foot a{color:var(--mute)}
      room. It grew from 52vh once the sale card stopped floating over it -- the
      card is in the list column now and costs the map nothing. */
   #mapcol{
-    flex:none; height:60vh; min-height:280px;
+    /* dvh, not vh: on iOS Safari vh resolves against the tall viewport (toolbar
+       hidden), so a vh-sized map renders shorter than asked for whenever the
+       toolbar is showing -- which is most of the time. dvh tracks what is
+       actually visible. vh first as the fallback for browsers without dvh. */
+    flex:none; height:68vh; height:68dvh; min-height:280px;
     position:sticky; top:env(safe-area-inset-top, 0px); z-index:5;
     background:var(--paper); padding-bottom:9px;
   }
@@ -525,7 +529,8 @@ footer#foot a{color:var(--mute)}
      and its "next stop" stay on screen while the reader scrolls the list.
      The offset has to track #mapcol's height above it -- keep the two in step. */
   #nowpanel{position:sticky; z-index:4; margin-bottom:10px;
-    top:calc(60vh + env(safe-area-inset-top, 0px))}
+    top:calc(68vh + env(safe-area-inset-top, 0px));
+    top:calc(68dvh + env(safe-area-inset-top, 0px))}
   /* the panel competes with the map for a short phone screen -- let the item
      text scroll sooner so the address and the next-stop step always fit */
   #nowpanel .nowit{max-height:74px}
@@ -533,8 +538,9 @@ footer#foot a{color:var(--mute)}
 @media (max-width:520px){
   .mast h1{font-size:20px}
   .search{max-width:none; flex-basis:100%}
-  #mapcol{height:56vh}
-  #nowpanel{top:calc(56vh + env(safe-area-inset-top, 0px))}   /* tracks #mapcol */
+  #mapcol{height:64vh; height:64dvh}
+  #nowpanel{top:calc(64vh + env(safe-area-inset-top, 0px));   /* tracks #mapcol */
+            top:calc(64dvh + env(safe-area-inset-top, 0px))}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important; animation:none!important}}
 
@@ -695,8 +701,11 @@ var G_TREE='<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-wi
 var LANDMARKS=[
   {name:"St. Ambrose Catholic Church", short:"St. Ambrose", addr:"5130 Wilson Ave",
    lat:38.615433, lon:-90.272408, glyph:G_CHURCH},
+  /* the Daggett x Marconi intersection node in OpenStreetMap -- the centre sits
+     on that corner. This used to reuse the 1935 Marconi sale's own coordinate,
+     which put the marker 48 m north, half a block up Marconi (Jim, 2026-09-18). */
   {name:"The Hill Neighborhood Center", short:"Neighborhood Ctr", addr:"1935 Marconi Ave",
-   lat:38.617238, lon:-90.272598, glyph:G_HALL},
+   lat:38.616805, lon:-90.272633, glyph:G_HALL},
   {name:"Berra Park", short:"Berra Park", addr:"Macklind & Shaw",
    lat:38.617945, lon:-90.278066, glyph:G_TREE}
 ];
@@ -1519,6 +1528,7 @@ nowEl.addEventListener('click', function(e){
 
 /* ---------------- selection ---------------- */
 function select(i, fromMap){
+  var changed = (sel!==i);
   sel=i;
   pickerAt=null;   /* any selection change closes an open picker */
   /* the bold leg follows the selection, but does NOT move the map here --
@@ -1526,12 +1536,16 @@ function select(i, fromMap){
   activeLeg = i;
   drawLeg();
   updateClusters();   /* the selected stop is always shown standalone, never clustered */
+  pop.hidden=true;   /* the picker, if one was open */
+  if(i===null) nowEl.hidden=true;
+  else { nowEl.innerHTML=nowHTML(STOPS[i]); nowEl.hidden=false; }
+  /* Which card the list leaves out depends on the selection, so the list has to
+     be rebuilt when the selection moves -- otherwise the sale sat in the panel
+     AND in the list directly beneath it, which is what Jim saw on his phone. */
+  if(changed) render();
   pins.forEach(function(p,j){ p.classList.toggle('on', j===i); });
   cards.forEach(function(c){ if(c) c.classList.toggle('on', +c.dataset.i===i); });
-  pop.hidden=true;   /* the picker, if one was open */
-  if(i===null){ nowEl.hidden=true; return; }
-  nowEl.innerHTML=nowHTML(STOPS[i]);
-  nowEl.hidden=false;
+  if(i===null) return;
   var card=cards.find(function(c){ return c && +c.dataset.i===i; });
   if(card && fromMap){
     var lr=listEl.getBoundingClientRect(), cr=card.getBoundingClientRect();
@@ -1641,7 +1655,15 @@ function match(s){
   }
   return true;
 }
+var rendering=false;
 function render(){
+  /* render() re-applies the selection at the end and select() rebuilds the list
+     when the selection moves, so the two call each other. One pass is enough. */
+  if(rendering) return;
+  rendering=true;
+  try{ renderBody(); } finally { rendering=false; }
+}
+function renderBody(){
   var shown=ordered().filter(match);
   var on=Object.keys(active).filter(function(t){ return active[t]; });
   var dirty = on.length || payMode || qstr;
@@ -1653,12 +1675,21 @@ function render(){
   var keep={}; shown.forEach(function(s){ keep[s.i]=1; });
   pins.forEach(function(p,i){ p.classList.toggle('dim', !keep[i]); });
 
+  /* #nowpanel shows the selected sale in full, directly above the list, so its
+     card underneath was the same address and the same description twice --
+     pinned to the top of the phone screen where the duplication was hardest to
+     miss. Filtered out of the list, not out of `keep`, so its pin stays lit. */
+  var matched = shown.length;
+  shown = shown.filter(function(s){ return s.i!==sel; });
+
   listEl.innerHTML=''; cards=[];
-  if(!shown.length){
+  if(!matched){
     listEl.innerHTML='<div class="empty"><b>Nothing matches</b>'+
       'Try fewer filters, or clear the search.</div>';
     return;
   }
+  /* everything that matched is already shown in the panel above */
+  if(!shown.length){ syncNear(); return; }
   /* Street headings group a list that runs street by street. In closest-first
      order the list hops between streets by design, so a heading per card would
      be noise -- each card carries its distance instead. */

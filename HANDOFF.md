@@ -128,6 +128,27 @@ What changed:
    leg. Burying the next-stop line behind a toggle is exactly what made the old
    route line invisible to everyone.
 
+#### Real-iPhone round (sixth pass)
+
+**Geolocation confirmed working on iPhone Safari via GitHub Pages**, which also
+confirms the artifact-iframe finding in the box at the top of this file.
+
+- **Use `dvh`, not `vh`, for the phone map.** On iOS Safari `vh` resolves against
+  the *tall* viewport (toolbar hidden), so a `vh`-sized map renders shorter than
+  asked for whenever the toolbar is showing — which is most of the time. Jim's
+  60vh map measured ~51% of his screen. Now `height:68vh; height:68dvh` (64 under
+  520px), `vh` first as the fallback. `#nowpanel`'s sticky `top` carries the same
+  pair.
+- **The selected sale is no longer listed twice.** `#nowpanel` shows it in full
+  and its card sat directly beneath, pinned to the top of the phone screen.
+  `render()` now filters `sel` out of the list — out of the list only, not out of
+  `keep`, so its pin stays lit — and `select()` re-renders when the selection
+  moves. `render()`/`select()` call each other, so `render()` has a `rendering`
+  re-entry guard and the body lives in `renderBody()`.
+- **The Neighborhood Center landmark was 48 m off**, half a block north up
+  Marconi, because it reused the 1935 Marconi *sale's* coordinate. It is now the
+  Daggett × Marconi intersection node from OSM, which is the corner it sits on.
+
 #### Location, mobile room, and a silent failure (fifth pass)
 
 Jim, testing v18 on a phone: *"Closest to me button doesn't seem to be working"*
