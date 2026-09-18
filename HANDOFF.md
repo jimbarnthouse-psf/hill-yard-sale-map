@@ -493,6 +493,7 @@ build/
   graph.py                     OSM streets -> graph.json (runtime routing)
   q.txt                        the Overpass query, to refetch geometry
   qb.txt                       the buildings query — see "Why there are no buildings"
+  qr.py                        share/ QR codes for the live URL (needs `segno`)
   clean.json                   60 parsed listings
   batch.csv                    geocoder input
   geo_raw.csv                  Census batch geocoder output
@@ -502,6 +503,9 @@ build/
   walk.json                    the drawn path: one street-following polyline per leg
   graph.json                   the street graph the PAGE routes on, live
   routemeta.json               loop distance, start, end, outliers, walked distance
+share/
+  qr.svg, qr.png               plain QR for the GitHub Pages URL
+  qr-card.svg                  ready-to-print card, title + QR + date
 dist/
   map.html                     what gets published
   preview.html                 same page, locally openable
@@ -835,6 +839,10 @@ buttons, or drive handlers via `javascript_tool`. Wheel zoom itself is a standar
 - **Battery over a four-hour event is untested.** `watchPosition` runs with
   `enableHighAccuracy:true` from page load. The second tap on the location button
   stops it, but nobody has measured the drain across a real morning.
+- **The QR codes encode the GitHub Pages URL** (`share/`, regenerate with
+  `python3 qr.py` from `build/`). **Renaming the repo would change that URL and
+  break every printed code** — GitHub redirects renamed *repo* pages, but do not
+  assume it redirects the *Pages* site. Decide the URL before anything is printed.
 - **Printable flyer / PDF** — Jim's original ask, still not built. One page: map plus
   the numbered list. He deferred it this round.
 - **Google My Maps CSV/KML export** — also originally requested, deferred. All the
