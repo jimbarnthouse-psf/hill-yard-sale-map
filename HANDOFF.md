@@ -1,6 +1,6 @@
 # The Hill Yard Sale Map — handoff
 
-**Live artifact:** https://claude.ai/artifact/XTPHamraY1feVFwMaanuQp (Version 9)
+**Live artifact:** https://claude.ai/artifact/XTPHamraY1feVFwMaanuQp (Version 12)
 **Live on GitHub Pages:** https://jimbarnthouse-psf.github.io/hill-yard-sale-map/
 **Repo:** https://github.com/jimbarnthouse-psf/hill-yard-sale-map (public)
 **Event:** Saturday, September 26, 2026, 8am–noon. The Hill, St. Louis 63110.
@@ -155,6 +155,13 @@ inside `build/`** (or just use `build.sh`, which cds for you).
 
 ## Data provenance and its caveats
 
+**2026-09-18 update:** Jim sent a revised spreadsheet — `5427 Bischoff Ave` dropped,
+`5606 Botanical Ave` added (net stop count unchanged, 60 rows in → 59 stops out).
+`5606 Botanical Ave` geocoded on the first try (exact Census match, no `MANUAL` entry
+needed). Loop grew slightly to 5.27 mi / 26 street runs. `source/Yard Sale Listing
+FINAL.xlsx` is now this revised file — the version from the 2026-09-17 handoff is
+gone; if you need it, it's in this repo/artifact's history before this date.
+
 **60 spreadsheet rows → 59 map stops.** `5415 Wilson Ave` appears twice (two
 different households). They're merged into one pin whose popup lists both, rather
 than two pins stacked on one point. `s.sellers` is an array for exactly this reason —
@@ -191,24 +198,33 @@ cards" deserve reading in full.
 
 ## The route, and why it is what it is
 
-A **closed loop** of about **5.23 miles**, 59 stops, default start `5235 Daggett Ave`,
-default end `1935 Marconi Ave` — which is **256 ft from the start**, so you park once
-and come back to your car.
+A **closed loop** of about **5.27 miles**, 59 stops. `stops.json` array order (its
+internal `startAt=0`) starts at `2023 Macklind Ave` and ends at `5415 Wilson Ave` —
+this is no longer surfaced in the UI as *the* start (Jim asked for that framing
+removed, see below), but it's still the array order everything else is numbered from
+until a reader picks their own.
 
 Jim's constraint was: *don't start or end on any sale that's way off on its own.* Two
-sales are genuine geographic outliers (mean distance to their 3 nearest neighbors):
+sales are genuine geographic outliers (mean distance to their 3 nearest neighbors) —
+unaffected by the 2026-09-18 address swap (5427 Bischoff Ave → 5606 Botanical Ave),
+since neither is near either outlier:
 
 - `4941 Magnolia Ave` — 563 m, nearest neighbor 506 m away. Half a mile south of everything.
 - `1631 Sublette Ave` — 549 m, nearest 479 m.
 
 Everything else has a neighbor within ~190 m. Solving as a **loop** satisfies the
 constraint structurally: first and last stop are adjacent by definition, so if one is
-central both are. The two outliers sit mid-route (`#17` and `#51`); Magnolia is an
-unavoidable out-and-back spur (506 m down, 568 m back).
+central both are. The two outliers sit mid-route (`#3` and `#37` as of the current
+address set — re-check after any `--data` re-run, these shift); Magnolia is an
+unavoidable out-and-back spur.
 
 ### The legibility/distance tradeoff — a deliberate choice, not an accident
 
-`route3.py` optimizes `distance + PEN × (number of street runs)`. The frontier:
+`route3.py` optimizes `distance + PEN × (number of street runs)`. The frontier below
+was measured against the address set at handoff (2026-09-17) — the exact mileage per
+PEN value will have drifted slightly after the 2026-09-18 swap, but the shape of the
+tradeoff (and PEN=100 as the knee) hasn't; re-run `python3 route3.py` in `build/` to
+refresh the table if it matters:
 
 | PEN | miles | street runs | character |
 |-----|-------|-------------|-----------|
@@ -319,6 +335,30 @@ pin. He was told and left it; he may prefer it be only a sale pin.
    now one horizontally-scrollable row under 860px.
 5. A stray Cyrillic `А` in a `--mute` hex token (harmless, a duplicate declaration
    overrode it) and sloppy `clamp()`/scale-bar arithmetic — all cleaned up.
+6. **`template.html` had no `<meta charset>` or `<meta name="viewport">` of its own** —
+   it relied on the Claude Artifact platform's wrapper to supply both. GitHub Pages
+   serves this file raw with no wrapper, so mobile browsers fell back to a ~980px
+   virtual viewport, `@media (max-width:860px)` never matched, and the desktop
+   two-column layout rendered crushed onto the phone screen in both orientations.
+   **The page must declare these itself, always** — never assume a host wrapper.
+7. **Pin/cluster numbers went blurry when zoomed in.** Both used
+   `filter:drop-shadow(...)`, which forces the browser to rasterize the element
+   (including the number) at its pre-zoom size before the map's ancestor zoom-scale
+   transform blows that bitmap back up. Swapped for `box-shadow` on the circle
+   instead — same look, no forced rasterization. **Never put `filter:` on an element
+   that's also inside a scaled/zoomed ancestor and carries text that needs to stay
+   sharp.**
+8. **Street labels could vanish for a street you were actively zoomed into.** Each
+   street used to get exactly one label, at its single longest node-to-node OSM
+   segment — for a long, densely-sampled street (Daggett, Bischoff, Wilson) that one
+   fixed point could be far off-screen while you browsed a different block of the
+   same street, which is visible but unlabeled. Fixed two ways: (a) merge consecutive
+   OSM segments that keep roughly the same heading into genuine straight runs
+   (±14°) instead of measuring node-to-node, since long straight streets were often
+   sampled as many short hops that individually never cleared the length floor; (b)
+   label *every* qualifying run per street (capped at 3), not just the longest, so a
+   multi-block street keeps a label in view as you pan. If you touch the label logic,
+   re-verify by zooming into a block away from a street's most prominent stretch.
 
 ### Testing notes
 

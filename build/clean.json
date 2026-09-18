@@ -49,13 +49,6 @@
   "pay": "Cash, Venmo"
  },
  {
-  "street": "5427 Bischoff Ave",
-  "venue": "",
-  "unit": "",
-  "items": "Household items, furniture, decor, clothing, appliances, toys, books, & more",
-  "pay": "Cash, Apple Pay, Venmo, Cash App, Zelle"
- },
- {
   "street": "5431 Bischoff Ave",
   "venue": "",
   "unit": "",
@@ -117,6 +110,13 @@
   "unit": "",
   "items": "Misc. household items, adult clothes, shoes, furniture",
   "pay": "Cash, Venmo"
+ },
+ {
+  "street": "5606 Botanical Ave",
+  "venue": "",
+  "unit": "",
+  "items": "Household items, toys, bikes",
+  "pay": "Cash"
  },
  {
   "street": "5608 Botanical Ave",
